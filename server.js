@@ -1,3 +1,4 @@
+import { createMarkdownVault } from './src/markdown-vault.js';
 import { createMemoryImport } from './src/memory-import.js';
 import { createMemoryStore } from './src/memory-store.js';
 import { createMemoryAgent } from './src/memory-agent.js';
@@ -17,16 +18,34 @@ import { createSourceReview } from './src/source-review.js';
 import { uid, now, hash, text, email, ensure, only, safeEqual, AppError } from './src/util.js';
 const ROOT = dirname(fileURLToPath(import.meta.url));
 export function makeApp(config = {}) {
-    const store = openStore(config.dbPath), domain = createDomain(store), auth = createAuth(store, config), ai = createAI(store, domain, { key: config.openaiKey, model: config.openaiModel, dailyLimit: config.dailyLimit, fetchImpl: config.fetchImpl, requestTimeoutMs: config.aiRequestTimeoutMs, provider: config.aiProvider, vertexProject: config.vertexProject, vertexAccessToken: config.vertexAccessToken, tokenProvider: config.tokenProvider });
+    const store = openStore(config.dbPath), domain = createDomain(store), auth = createAuth(store, config);
+    let vault;
+    function syncWorkspace(w, allowIssues = false) {
+        if (!vault) return {enabled:false,issues:[]};
+        const status = vault.reconcile(w);
+        ensure(allowIssues || !status.issues.length, 'Your Markdown library needs attention. Open Memory and restore or fix the listed files before continuing.', 409, 'markdown_needs_attention');
+        return status;
+    }
+    function flushWorkspace(w) { const result=vault.flush(w); ensure(!result.issues.length && !result.pending_count, 'The record is queued but could not be written to Markdown. Open Memory to resolve the file conflict before retrying.',409,'markdown_write_pending'); return result; }
+    const ai = createAI(store, domain, { syncWorkspace, key: config.openaiKey, model: config.openaiModel, dailyLimit: config.dailyLimit, fetchImpl: config.fetchImpl, requestTimeoutMs: config.aiRequestTimeoutMs, provider: config.aiProvider, vertexProject: config.vertexProject, vertexAccessToken: config.vertexAccessToken, tokenProvider: config.tokenProvider });
     const memory = createMemoryStore(store, domain);
     const memoryImport = createMemoryImport(store, domain, memory);
-    const memoryAgent = createMemoryAgent(store, domain, memory, { vertexProject: config.vertexProject, vertexModel: config.openaiModel, tokenProvider: config.tokenProvider, vertexAccessToken: config.vertexAccessToken, fetchImpl: config.fetchImpl });
-    const conversations = createConversationService(store, domain, memoryAgent, dispatch, config);
+    const memoryAgent = createMemoryAgent(store, domain, memory, { syncWorkspace, vertexProject: config.vertexProject, vertexModel: config.openaiModel, tokenProvider: config.tokenProvider, vertexAccessToken: config.vertexAccessToken, fetchImpl: config.fetchImpl });
+    const conversations = createConversationService(store, domain, memoryAgent, dispatch, {...config,syncWorkspace,flushWorkspace});
     const relationships = createRelationships(store, domain);
     const warm = createWarmStart(store, domain);
     const sourceReview = createSourceReview(store, domain, warm);
-    const chats = createChatConnectors(store, domain, relationships, config);
+    const chats = createChatConnectors(store, domain, relationships, {...config,syncWorkspace,flushWorkspace});
+    vault = createMarkdownVault(store,domain,{root:config.memoryDir || process.env.THREADLINE_MEMORY_DIR});
+    vault.migrate();
     const inflight = new Set();
+    const vaultView = w => { const status=vault.status(w); return {...status,files:status.managed_count,pending:status.pending_count}; };
+    const filePath = (w,id) => vault.enabled ? w+'/notes/'+id+'.md' : null;
+    function safeState(w,status) {
+        const data=domain.state(w);
+        if(status.issues.length) { for(const key of ['notes','claims','reviews','tasks','events','jobs'])data[key]=[]; data.projects=data.projects.map(p=>({...p,summary:'',summary_refs:'[]'})); }
+        return {...data,markdown_vault:status};
+    }
     const security = { 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'x-frame-options': 'DENY', 'permissions-policy': 'camera=(), microphone=(), geolocation=()', 'content-security-policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'" };
     function send(res, status, data, extra = {}) { res.writeHead(status, { ...security, 'content-type': 'application/json; charset=utf-8', 'cache-control': 'private, no-store', ...extra }); res.end(JSON.stringify(data)); }
     async function body(req) {
@@ -52,15 +71,27 @@ export function makeApp(config = {}) {
     const wrap = fn => store.tx(fn);
     async function dispatch(req, url, input, s) {
         const w = s.user.workspace_id, p = url.pathname, m = req.method, match = (re) => p.match(re);
+        const safePath=(m==='GET'&&/^\/api\/memory\/sources\/[\w-]+$/.test(p)) || ['/api/state','/api/memory','/api/memory/vault','/api/memory/vault/sync'].includes(p) || /^\/api\/memory\/sources\/[\w-]+\/forget$/.test(p);
+        const storage=syncWorkspace(w,safePath);
+        if(m==='GET'&&p==='/api/memory/vault') return vaultView(w);
+        if(m==='POST'&&p==='/api/memory/vault/sync') { only(input,[]); vault.reconcile(w); return vaultView(w); }
+        const md=match(/^\/api\/memory\/sources\/([\w-]+)\/markdown$/);
+        if(md&&m==='GET') { const result=vault.readMarkdown(w,md[1]); return {...result,filename:md[1]+'.md',content:result.markdown}; }
         if (m === 'GET' && p === '/api/state')
-            return { ...domain.state(w), ai: ai.status(w), memoryAgent: memoryAgent.status(w), user: s.user, release: '1.4.0', demo: config.demo === true };
-        if (m === 'GET' && p === '/api/memory') { const current=memory.state(w), imports=memoryImport.sources(w); return { ...current, sources: current.sources.map(source => ({...source, imports: imports[source.id] || []})), agent: memoryAgent.status(w) }; }
+            return { ...safeState(w,storage), ai: ai.status(w), memoryAgent: memoryAgent.status(w), user: s.user, release: '1.4.0', demo: config.demo === true };
+        if (m === 'GET' && p === '/api/memory') {
+            const current=memory.state(w), imports=memoryImport.sources(w), blocked=new Set(storage.issues.map(issue=>issue.source_id));
+            const sources=current.sources.filter(source=>!blocked.has(source.id)).map(source=>({...source,imports:imports[source.id]||[],markdown_path:filePath(w,source.id)}));
+            const items=current.items.filter(item=>!blocked.has(item.source_id)), stats={...current.stats,source_count:sources.length,item_count:items.length};
+            for(const state of ['proposed','confirmed','rejected','superseded','stale','forgotten'])stats[state]=items.filter(item=>item.status===state).length;
+            return {...current,sources,items,stats,conflicts:storage.issues.length?[]:current.conflicts,vault:vaultView(w),agent:memoryAgent.status(w)};
+        }
         if (m === 'POST' && p === '/api/memory/imports/preview') return memoryImport.preview(w,input);
         if (m === 'POST' && p === '/api/memory/imports/commit') return memoryImport.commit(w,input);
         if (m === 'GET' && p === '/api/memory/search') return memory.retrieve(w, { query: url.searchParams.get('q') || '', limit: Math.min(25, Math.max(1, Number(url.searchParams.get('limit')) || 20)), contact_id: url.searchParams.get('contact_id') || undefined, project_id: url.searchParams.get('project_id') || undefined });
         if (m === 'POST' && p === '/api/memory/sources') return memory.ingest(w, input);
         let mem = match(/^\/api\/memory\/sources\/([\w-]+)$/);
-        if (mem && m === 'GET') return { ...memory.getSource(w, mem[1]), imports: memoryImport.provenance(w,mem[1]) };
+        if (mem && m === 'GET') { const current=memory.getSource(w,mem[1]), issue=storage.issues.find(i=>i.source_id===mem[1]); return {...current,...(issue?{body:'',body_hash:'',markdown_unavailable:true}:{}),imports:memoryImport.provenance(w,mem[1]),markdown_path:filePath(w,mem[1])}; }
         if (mem && m === 'PATCH') return wrap(() => domain.editNote(w, mem[1], input));
         mem = match(/^\/api\/memory\/sources\/([\w-]+)\/(organize|forget)$/);
         if (mem && m === 'POST') return mem[2] === 'forget' ? memory.forgetSource(w, mem[1], input) : memoryAgent.organize(w, mem[1], { use_ai: false, ...input });
@@ -205,12 +236,14 @@ export function makeApp(config = {}) {
             auth.rate('reauth:' + s.user.id, 10);
             only(input, ['password']);
             await auth.confirm(s.user.id, input.password);
+            syncWorkspace(w);
             return { ...domain.export(w), extensions: { warm_start: warm.export(w), chat: chats.export(w), memory: memory.state(w), agent: memoryAgent.history(w), memory_imports: memoryImport.sources(w) } };
         }
         if (m === 'POST' && p === '/api/restore') {
             auth.rate('reauth:' + s.user.id, 10);
             only(input, ['password', 'archive']);
             await auth.confirm(s.user.id, input.password);
+            syncWorkspace(w);
             return domain.restore(w, { archive: input.archive });
         }
         if (m === 'GET' && p === '/api/ai/status')
@@ -295,9 +328,14 @@ export function makeApp(config = {}) {
                 if (p === '/api/account' && req.method === 'DELETE') {
                     auth.rate('delete:' + session.user.id, 5);
                     only(input, ['password', 'confirm']);
-                    return send(res, 200, await auth.deleteAccount(session.user.id, input), { 'set-cookie': 'threadline_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0' });
+                    const deleted=await auth.deleteAccount(session.user.id,input);
+                    const cleanup=vault.clearWorkspace(session.user.workspace_id);
+                    ensure(!cleanup.issues?.length,'The account was removed but some local Markdown files require operator cleanup.',500,'markdown_cleanup_pending');
+                    return send(res, 200, deleted, { 'set-cookie': 'threadline_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0' });
                 }
                 const w = session.user.workspace_id;
+                const allowsIssue=(req.method==='GET'&&/^\/api\/memory\/sources\/[\w-]+$/.test(p)) || ['/api/state','/api/memory','/api/memory/vault','/api/memory/vault/sync'].includes(p)||/^\/api\/memory\/sources\/[\w-]+\/forget$/.test(p);
+                syncWorkspace(w,allowsIssue);
                 const key = req.headers['idempotency-key'];
                 let ikey, requestHash;
                 if (mutating) {
@@ -316,7 +354,8 @@ export function makeApp(config = {}) {
                 }
                 try {
                     const result = await dispatch(req, url, input, session);
-                    if (mutating && p != '/api/export' && p != '/api/connections/code' && p != '/api/memory/imports/preview') {
+                    if(mutating && p!='/api/memory/vault/sync')flushWorkspace(w);
+                    if (mutating && p != '/api/export' && p != '/api/connections/code' && p != '/api/memory/imports/preview' && p != '/api/memory/vault/sync') {
                         const g = domain.workspace(w).generation;
                         store.db.prepare('INSERT OR REPLACE INTO idempotency VALUES(?,?,?,?,?,?)').run(w, key, requestHash, JSON.stringify(result), g, now());
                         store.db.prepare('DELETE FROM idempotency WHERE created_at<?').run(new Date(Date.now() - 86400000).toISOString());
@@ -359,7 +398,7 @@ export function makeApp(config = {}) {
     });
     server.requestTimeout = 60000;
     server.headersTimeout = 20000;
-    return { server, store, domain, auth, ai, warm, chats, memory, memoryAgent, memoryImport, conversations, async close() { await conversations.close(); await memoryAgent.drain(); await ai.drain(); await chats.drain(); await new Promise(r => server.close(r)); store.close(); } };
+    return { server, store, domain, auth, ai, warm, chats, memory, memoryAgent, memoryImport, conversations, vault, async close() { await conversations.close(); await memoryAgent.drain(); await ai.drain(); await chats.drain(); vault.flush(); await new Promise(r => server.close(r)); store.close(); } };
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
     try {

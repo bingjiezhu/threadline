@@ -41,6 +41,7 @@ export function createConversationService(store, domain, agent, dispatch, config
       const client={workspaceId:w, async request(path,method='GET',input={},requestKey){
         // Core commands call the same authenticated domain dispatch, without loopback network or platform identity.
         ensure(!path.startsWith('/api/memory/conversations'), 'Recursive conversation call refused.');
+        config.syncWorkspace?.(w);
         const url=new URL(path,'http://localhost'), fingerprint=hash(method+':'+url.pathname+':'+JSON.stringify(input));
         if(method!=='GET'&&requestKey){
           const old=db.prepare('SELECT * FROM idempotency WHERE workspace_id=? AND key=?').get(w,requestKey);
@@ -48,6 +49,7 @@ export function createConversationService(store, domain, agent, dispatch, config
         }
         const result=await dispatch({method},url,input,session);
         if(path==='/api/capture'&&method==='POST'&&result.note?.id)db.prepare('INSERT OR REPLACE INTO memory_sources VALUES(?,?,?,?)').run(w,result.note.id,channel==='asi-one'?'asi':'photon',now());
+        if(method!=='GET') config.flushWorkspace?.(w);
         if(method!=='GET'&&requestKey) db.prepare('INSERT INTO idempotency VALUES(?,?,?,?,?,?)').run(w,requestKey,fingerprint,JSON.stringify(result),domain.workspace(w).generation,now());
         return result;
       }};
@@ -71,6 +73,7 @@ export function createConversationService(store, domain, agent, dispatch, config
       for(const key of ['session','message_id'])ensure(typeof input[key]==='string'&&input[key].length>0&&input[key].length<=200,'Invalid conversation identifier.');
       ensure(typeof input.message==='string'&&input.message.trim()&&input.message.length<=4000,'Send a message of 1–4,000 characters.');
       if(input.created_at)ensure(Number.isFinite(Date.parse(input.created_at)),'Invalid message time.');
+      config.syncWorkspace?.(session.user.workspace_id);
       const service=await engine(session,input.channel);
       return {reply:await service.call(input.session,input.message,{messageId:input.channel+':'+input.session+':'+input.message_id,createdAt:input.created_at}),engine:'threadline-memory-core'};
     },

@@ -1,8 +1,8 @@
 # Threadline
 
-**Remember the people, projects and promises that matter.**
+**Your memory, in local Markdown. Your people and projects, in context.**
 
-Threadline is a personal relationship and project workspace. Keep the context behind each person, see what changed in a project, and follow through on commitments. Overview, Contacts, Projects, Notes & evidence, Follow-ups, Tasks, Capture, Find people and This week remain the main workflow. Memory and Ask Threadline help you collect and recall that context without replacing those tools.
+Threadline is a local personal memory workspace with a personal agent. Save conversations, ideas and project updates; see exactly what you have stored; and recall the context when you need it. Memory and Personal agent are the starting points. Overview, Contacts, Projects, Notes & evidence, Follow-ups, Tasks, Capture, Find people and This week remain available for managing the people and commitments behind that memory.
 
 ## Start
 
@@ -12,13 +12,17 @@ Requires Node.js 22.16 or newer. No dependency installation is needed for the co
 npm start
 ```
 
-Open **http://localhost:4173/#overview** and create an account. New accounts start empty. Keep the server running while using the website.
+Open **http://localhost:4173/#memory** and create an account. New accounts start empty. Keep the server running while using the website.
 
-The default setup listens on `127.0.0.1` and stores your records in `.data/threadline.sqlite` on the computer running Threadline. The browser displays the workspace; the local Node server saves the database, rather than relying on browser local storage. Core storage, search, import and relationship workflows need no cloud account or model key. `THREADLINE_DB` can select a different local database path. If you choose to host the server on another machine, records are stored on that machine.
+The default setup listens on `127.0.0.1`. Original memory content is saved as Markdown under `.data/memory/`, with one folder per workspace and one `.md` file per source. A generated `MEMORY.md` links to those files. SQLite at `.data/threadline.sqlite` keeps the search index, cached source text, accounts, relationships, tasks and agent state. Keep both the vault and database; Markdown alone does not restore the entire application.
 
-## Memory that supports your relationships
+The browser displays the workspace; the local Node server saves it on this computer. Core storage, search, import and relationship workflows need no cloud account or model key. `THREADLINE_DB` selects a database path; the default vault is its sibling `memory/` directory. Set `THREADLINE_MEMORY_DIR` before first use to choose another vault. If the server is hosted elsewhere, both stores are on that server.
 
-Save a conversation, preference or project update and link it to the relevant person or project. The **Memory** library shows the original content you saved. Search or open a source to inspect it, use optional organization to review extracted facts and commitments, or use **Ask Threadline** for context before the next conversation. Answers link back to their sources; local mode returns retrieved excerpts and Gemini synthesis is optional.
+## See what you remember
+
+Save a conversation, preference or project update and optionally link it to a person or project. The **Memory** library shows the original content you saved. Search or open a source to inspect it, use optional organization to review extracted facts and commitments, or ask the **Personal agent** for context before the next conversation. Answers link back to their sources; local mode returns retrieved excerpts and Gemini synthesis is optional.
+
+The Markdown body preserves the original text. A small frontmatter header records its identity, date and links. You can edit the body in a text editor and synchronize it in Threadline; ordinary workspace requests also check for disk changes. Keep identity, version and timestamps unchanged. Missing files, invalid headers or competing edits are reported instead of silently overwriting your content. Use **Forget** in Threadline to remove a saved source; use the importer to add existing files. Unlisted files in the vault are left untouched.
 
 Editing a source invalidates dependent memories and answers. Forgetting removes its active text and derived quotations. Existing backups are separate.
 
@@ -28,7 +32,7 @@ Task proposals require a separate confirmation. Photon and ASI:One are optional 
 
 Choose **Memory → Import local memory**, select **Codex** or **Claude**, then choose Markdown/text files or a memory folder. Preview the originals and select what to import. Identical content is reused; changed files become new snapshots. Large files are preserved as linked parts. You can filter the memory library by Codex, Claude, iMessage, ASI:One or web notes.
 
-Import copies the chosen content into the Threadline database. It leaves your original Codex/Claude files unchanged and does not set up automatic synchronization. In the default local setup, preview and import stay between your browser and the local server: no model call or cloud upload is part of import. Only files you select are read.
+Import copies the chosen content into Threadline's Markdown vault and indexes it locally. It leaves your original Codex/Claude files unchanged and does not set up automatic synchronization with those source folders. In the default local setup, preview and import stay between your browser and the local server: no model call or cloud upload is part of import. Only files you select are read.
 
 ## Capture from iMessage or ASI:One
 
@@ -38,7 +42,15 @@ In your connected private chat, send:
 
 This saves the original message directly to Memory. Questions do not become notes. A separate request such as **Remind me to send Alex the agenda tomorrow** still previews the task and waits for **Confirm**. No inferred task or external message is created just because you saved a note.
 
-These optional messaging channels use external providers to transport messages; they are not an offline connection. Received content is saved in the same Threadline database as website notes.
+These optional messaging channels use external providers to transport messages; they are not an offline connection. Explicitly saved messages use the same Markdown write pipeline and local search index as website notes.
+
+## Back up both parts
+
+```sh
+npm run backup -- --out /private/path/threadline-backup.sqlite
+```
+
+The backup contains the SQLite snapshot plus `threadline-backup.sqlite.memory/`. The command verifies file hashes, the database index and SQLite integrity, and refuses a pending or conflicting save. Restore both parts together with the app stopped, to the original configured database and vault locations. The vault path is recorded in the database; simply moving the database does not relocate it. See [storage and recovery details](docs/PERSONAL_MEMORY.md#backup-and-restore). Private data is not included in the source repository.
 
 ## Optional Gemini
 
@@ -96,9 +108,9 @@ npm test
 npm run validate
 ```
 
-See `docs/USER_GUIDE.md`, `docs/OPERATIONS.md` and `docs/ARCHITECTURE.md` for usage, full database backup and implemented behavior.
+See `docs/USER_GUIDE.md`, `docs/OPERATIONS.md` and `docs/ARCHITECTURE.md` for existing relationship workflows and operator procedures; [the current memory architecture](docs/PERSONAL_MEMORY.md) adds the Markdown vault and paired backup requirement.
 
-Threadline builds on an existing Apache-2.0 application. This final consolidation restores personal relationship management as the main entry while retaining the newer core. The inherited 83-second English walkthrough is earlier real-app evidence, not a claim that all code or footage was created in this pass. Preserve `LICENSE` and `NOTICE`; see `PROVENANCE.md` for the contribution boundary.
+Threadline builds on an existing Apache-2.0 application. The current memory entry retains the original relationship and project workflows. The inherited 83-second English walkthrough is earlier real-app evidence, not a claim that all code or footage was created in this pass. Preserve `LICENSE` and `NOTICE`; see `PROVENANCE.md` for the contribution boundary.
 
 ## Optional ASI:One fictional demo
 

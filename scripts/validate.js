@@ -20,7 +20,7 @@ for (const f of walk(root)) {
         english++;
         // These exact implementation/test files intentionally accept multilingual input.
         // Public UI, documentation and other release content retain the English check.
-        const multilingualInputFiles = new Set(['src/personal-conversation.js','integrations/photon/assistant.test.mjs','integrations/photon/bridge.test.mjs','integrations/agentverse/test_personal_transport.py','tests/memory-quick-capture.test.js','tests/memory-import.test.js']);
+        const multilingualInputFiles = new Set(['src/personal-conversation.js','integrations/photon/assistant.test.mjs','integrations/photon/bridge.test.mjs','integrations/agentverse/test_personal_transport.py','tests/memory-quick-capture.test.js','tests/memory-import.test.js','tests/markdown-backup.test.js']);
         if (!multilingualInputFiles.has(rel) && /[\u3400-\u4dbf\u4e00-\u9fff]/u.test(s))
             errors.push(`${rel}: unexpected CJK text; release materials must be English.`);
         if (/sk-[A-Za-z0-9_-]{30,}/.test(s))
