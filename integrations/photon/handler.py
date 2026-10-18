@@ -28,7 +28,7 @@ class PhotonWorkflow(flow.Workflow):
    reply+='\n\nSHORT REMINDER PATH: TASK <your reminder title>\nThen confirm the displayed token. This does not send outreach.'
   return reply
 try:
- backend=flow.Backend(audit_name='fictional-http.jsonl');workflow=PhotonWorkflow(backend)
+ backend=flow.Backend(audit_name='.runtime/fictional-http.jsonl');workflow=PhotonWorkflow(backend)
  print(json.dumps({'ready':True,'fictional':True}),flush=True)
  for line in sys.stdin:
   try:
