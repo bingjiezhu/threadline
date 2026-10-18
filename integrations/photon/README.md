@@ -1,21 +1,21 @@
 # Threadline in iMessage — personal relationship assistant
 
-This post-submission local improvement connects Photon to the same personal workspace used by the web app. The competition snapshot and published release stay unchanged.
+This post-submission improvement connects Photon to the same personal workspace used by the web app. The competition snapshot and published release stay unchanged.
 
 ## Useful conversations
 
-- `我等会要见 Alex，用三句话告诉我重点。` — brief from real records and commitments.
-- `记一下：刚和 Alex 聊完，他想下周看演示。我答应周五把介绍发给他。` — preview the exact note and dated task.
-- `确认` — save the displayed change; then ask `Alex 最近聊了什么？` to retrieve it.
-- `最近有哪些人值得重新联系？分别聊什么？` — explain reviewed requirement/progress matches.
-- `这周我答应过哪些人？先做哪件？` — open tasks ordered by due date.
-- `帮我给 Alex 写一条自然的跟进消息。` — preview a source-backed draft, saved only on confirmation, never sent to Alex.
+- `Brief me before I meet Alex.` — brief from real records and commitments.
+- `Remember this: I just spoke with Alex. I promised to send the demo outline by Friday.` — preview the exact note and dated task.
+- `Confirm` — save the displayed change; then ask `What did I last discuss with Alex?` to retrieve it.
+- `Who should I follow up with?` — explain reviewed requirement/progress matches.
+- `What are my promises this week?` — open tasks ordered by due date.
+- `Draft a follow-up for Alex.` — preview a source-backed draft, saved only on confirmation, never sent to Alex.
 
-`取消` cancels. `改成……` edits a preview. A conversation has one pending action, with a 15-minute expiry and workspace-version checks. Same-name contacts require disambiguation. No confirmation nonce is shown. Tasks support dates, not scheduled phone notifications; time-of-day requests are retained as notes and this limitation is explained.
+`Cancel` cancels. `Change to ...` edits a preview. A conversation has one pending action, with a 15-minute expiry and workspace-version checks. Same-name contacts require disambiguation. No confirmation nonce is shown. Tasks support dates, not scheduled phone notifications; time-of-day requests are retained as notes and this limitation is explained.
 
 ## Run against an existing app
 
-Keep Threadline running on loopback. Use a private mode-600 JSON handoff with apiKey, projectId, testSender, agentHandle, appOrigin, appAccessFile, assistantStateFile, stateDir, and optional maxSeconds/minCreatedAt/vertexConfigFile/replyLanguage. Set replyLanguage to en for English replies, zh for Chinese, or auto to follow the incoming language. Original quoted notes are preserved. appAccessFile points to a mode-600 JSON containing the existing workspace owner's email and password. All paths are local absolute paths. Never commit the handoff or runtime records.
+Keep Threadline running on loopback. Use a private mode-600 JSON handoff with apiKey, projectId, testSender, agentHandle, appOrigin, appAccessFile, stateDir, and optional maxSeconds/minCreatedAt. Replies default to English. Conversation state is stored in the app database; legacy assistantStateFile and vertexConfigFile fields are no longer needed by this thin client. Original quoted notes are preserved. appAccessFile points to a mode-600 JSON containing the existing workspace owner's email and password. All paths are local absolute paths. Never commit the handoff or runtime records.
 
 ```sh
 cd integrations/photon
@@ -29,7 +29,7 @@ Private durable inbox/outbox/seen files prevent ordinary retries and restarts fr
 
 ## Optional Gemini understanding
 
-The examples above work locally. vertexConfigFile may point to private JSON with project and model (gemini-3.8-flash); operator ADC stays on the host. After reading the help text, the owner can send `启用AI理解` / `enable AI understanding`. Only subsequent incoming message text and the current local date are sent to Gemini for structured intent parsing, not the stored notes or whole contact database. Parsed fields must be literal spans of the incoming message. The server resolves actual IDs and enforces confirmation; the model cannot approve evidence, contact anyone or choose arbitrary API routes. There is a 30-attempt local-day limit. Failures explicitly fall back to local supported patterns. `关闭AI理解` disables it.
+The examples above work locally. Configure Vertex on the Threadline server; operator ADC stays on that host. Send `Ask AI: What does Alex prefer before a meeting?` to explicitly allow that question and bounded retrieved excerpts to be synthesized by Gemini. Its answer, citations and proposed tasks are visible in the website Personal agent history. Review tasks on the website before creating them. After reading the help text, the owner can send `Enable AI understanding` / `enable AI understanding`. Only subsequent incoming message text and the current local date are sent to Gemini for structured intent parsing, not the stored notes or whole contact database. Parsed fields must be literal spans of the incoming message. The server resolves actual IDs and enforces confirmation; the model cannot approve evidence, contact anyone or choose arbitrary API routes. There is a 30-attempt local-day limit. Failures explicitly fall back to local supported patterns. `Disable AI understanding` disables it.
 
 ## Verification and provenance
 

@@ -19,7 +19,7 @@ function apiTest(name, fn) { test(name, async () => { const c = await setup(); t
 finally {
     await c.app.close();
 } }); }
-apiTest('Health is public but discloses no filesystem or private records', async ({ client }) => { const r = await client().call('/api/health'); assert.equal(r.status, 200); assert.deepEqual(r.data, { ok: true, version: '1.3.2' }); });
+apiTest('Health is public but discloses no filesystem or private records', async ({ client }) => { const r = await client().call('/api/health'); assert.equal(r.status, 200); assert.deepEqual(r.data, { ok: true, version: '1.4.0' }); });
 apiTest('Unauthenticated users cannot read or mutate workspace records', async ({ client }) => { const c = client(); for (const [p, m, b] of [['/api/state', 'GET'], ['/api/contacts', 'POST', { name: 'Intruder' }], ['/api/export', 'POST', {}], ['/api/reviews/refresh', 'POST', {}]])
     assert.equal((await c.call(p, m, b)).status, 401); });
 apiTest('Account creation starts empty and uses an HttpOnly SameSite session', async ({ client }) => { const c = client(); const r = await c.call('/api/auth/register', 'POST', { name: 'A User', email: 'a@example.com', password: 'An actual long password', inviteCode: invite }); assert.equal(r.status, 200); assert.match(r.headers.get('set-cookie'), /HttpOnly; SameSite=Strict/); const st = await c.call('/api/state'); assert.equal(st.status, 200); assert.equal(st.data.contacts.length, 0); assert.equal(st.data.notes.length, 0); assert.equal(st.data.reviews.length, 0); });

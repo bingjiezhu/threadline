@@ -133,7 +133,7 @@ test('channel contract: ambiguous interrupted app work is never automatically re
   await run(c, recovered.deps);
   assert.equal(recovered.calls.length, 0);
   assert.equal(recovered.sends.length, 1);
-  assert.match(recovered.sends[0].body.content.text, /没有重复执行/);
+  assert.match(recovered.sends[0].body.content.text, /did not repeat the action/);
 });
 
 test('channel contract: a local app exception gives a concise check-before-retrying reply without exposing exception', async t => {
@@ -141,7 +141,7 @@ test('channel contract: a local app exception gives a concise check-before-retry
   const h = harness({ call: async () => { throw new Error('secret-token and raw SQL'); } });
   await run(c, h.deps);
   assert.equal(h.calls.length, 1); assert.equal(h.sends.length, 1);
-  assert.match(h.sends[0].body.content.text, /请先在 Threadline 确认/);
+  assert.match(h.sends[0].body.content.text, /Check Threadline before retrying/);
   assert.doesNotMatch(JSON.stringify(h.logs) + h.sends[0].body.content.text, /secret-token|raw SQL/);
 });
 

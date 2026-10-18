@@ -10,7 +10,7 @@ test('The disposable practice command runs real auth and matching without mutati
  try{
   for(let i=0;i<150;i++){try{data=JSON.parse(output);break;}catch{}if(child.exitCode!==null)throw Error(err);await sleep(50);}
   assert.ok(data?.url,err);assert.match(data.notice,/Fictional/);
-  const origin=data.url;const health=await(await fetch(origin+'/api/health')).json();assert.equal(health.version,'1.3.2');
+  const origin=data.url;const health=await(await fetch(origin+'/api/health')).json();assert.equal(health.version,'1.4.0');
   const login=await fetch(origin+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json',Origin:origin},body:JSON.stringify({email:data.email,password:data.password})});
   assert.equal(login.status,200);const cookie=login.headers.get('set-cookie').split(';')[0];const auth=await login.json();
   async function api(path,body){const r=await fetch(origin+path,{method:body?'POST':'GET',headers:{Cookie:cookie,...(body?{'Content-Type':'application/json',Origin:origin,'X-CSRF-Token':auth.csrf,'Idempotency-Key':crypto.randomUUID()}: {})},...(body?{body:JSON.stringify(body)}:{})});assert.equal(r.ok,true,await r.clone().text());return r.json();}

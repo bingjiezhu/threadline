@@ -1,10 +1,46 @@
 # Threadline
 
-**Keep the context. Find the right moment.**
+**Save your context. See what you remember.**
 
-A private relationship workspace for people who manage their own professional network. Remember what someone asked for, what you promised, why a project paused, and what has changed since your last conversation.
+Threadline is a small, self-hosted personal memory system. Save a conversation, idea, preference or project update, then browse the original content in one place. Optional Gemini organization proposes useful memories; the website shows each one beside the exact source it came from.
 
-Threadline brings contacts, projects, original notes, reviewed evidence, editable follow-ups and ordinary tasks into one persistent workspace. It starts empty and works with records you enter yourself. Fictional examples are optional.
+## Start
+
+Requires Node.js 22.16 or newer. No dependency installation is needed for the core app.
+
+```sh
+npm start
+```
+
+Open **http://localhost:4173/#memory** and create an account. New accounts start empty. Sources, memories and agent conversations persist in SQLite across refreshes and server restarts.
+
+## The simple workflow
+
+1. **Save:** choose **Add a memory**, paste the original content and optionally link a person or project.
+2. **See everything:** the Memory page opens on **Sources**, showing what you actually saved. Open a card to inspect its full text.
+3. **Organize:** use local sentence extraction, or explicitly send that one source to Gemini. Review suggested preferences, decisions, commitments and facts.
+4. **Recall:** ask the Personal agent about saved context. Answers include source quotations. Gemini synthesis is optional; local mode returns retrieved excerpts.
+5. **Correct or forget:** editing a source invalidates dependent memories and answers. Forgetting removes its active text and derived quotations. Existing backups are separate.
+
+Task proposals require a separate confirmation. Photon and ASI:One are optional message channels to this same backend; they do not have separate copies of your memory.
+
+## Optional Gemini
+
+Set operator-held Vertex configuration in `.env`, authenticate Application Default Credentials, and restart:
+
+```sh
+THREADLINE_AI_PROVIDER=vertex
+THREADLINE_VERTEX_PROJECT=your-project-id
+THREADLINE_VERTEX_MODEL=gemini-3.8-flash
+```
+
+Use an available model in your project. Each website request explicitly chooses whether to send the selected source or bounded retrieved excerpts. No key or credential is delivered to the browser. See [the memory architecture and API](docs/PERSONAL_MEMORY.md) for data lifecycle, testing and limits.
+
+## Release history
+
+The current `main` branch includes the personal memory system developed **after** the LA Hacks submission. The immutable [`la-hacks-2026` release](https://github.com/bingjiezhu/threadline/releases/tag/la-hacks-2026) retains the competition snapshot. Current capabilities must not be attributed retroactively to that submission.
+
+The earlier relationship, follow-up and optional onboarding tools remain available. Their original workflows and limitations are documented below.
 
 ## A familiar situation
 

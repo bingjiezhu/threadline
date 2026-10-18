@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { makeApp } from '../../server.js';
-import { createAssistant, createAppClient, localDay, parseDay } from './assistant.mjs';
+import { createAssistant, createAppClient, localDay, parseDay } from '../../src/personal-conversation.js';
 
 // Each case creates a fresh HTTP server and disposable SQLite workspace. No
 // Photon, model service, real credentials or the demonstration app is accessed.

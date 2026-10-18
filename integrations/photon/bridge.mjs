@@ -8,8 +8,8 @@ import { dirname, join, resolve } from 'node:path';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MAX_SEND_ATTEMPTS = 4;
 const MAX_POLL_ERRORS = 6;
-const RECOVERED_REPLY = '上次处理被中断了。请先在 Threadline 查看是否已经保存；我没有重复执行。';
-const LOCAL_ERROR_REPLY = '这次没能完成。请先在 Threadline 确认是否已经保存，再重试；我没有向联系人发送消息。';
+const RECOVERED_REPLY = 'The previous request was interrupted. Check Threadline before retrying; I did not repeat the action.';
+const LOCAL_ERROR_REPLY = 'I could not finish this request. Check Threadline before retrying; no message was sent to your contacts.';
 
 export function config(env = process.env) {
   for (const key of ['PHOTON_API_KEY', 'PHOTON_PROJECT_ID', 'PHOTON_TEST_SENDER', 'PHOTON_AGENT_HANDLE']) {

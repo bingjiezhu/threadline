@@ -1,4 +1,10 @@
-# Current merged release direction
+# Current personal memory direction
+
+The current product is a simple personal memory system: save content, list everything saved, inspect original sources, review optional extracted memories, and ask an agent over those records. Memory is the default screen. Preserve existing user data and owner isolation. SQLite is the source of truth; Photon and ASI:One are thin clients to the same backend conversation service.
+
+The user authorized publishing this post-submission work to GitHub. Keep the original LA Hacks release/tag intact and label later work accurately. Do not rewrite competition evidence. Read docs/PERSONAL_MEMORY.md for current architecture and verification. All default product and channel replies are English; bilingual input parsing remains supported.
+
+# Earlier relationship release direction
 
 The latest user request makes personal relationship and project management the primary product. The default Overview, contacts, projects, source notes, reviewed evidence, follow-ups and tasks are the main workflow. Warm Start and its MCP companion remain optional existing tools, not the primary submission. This direction supersedes historical Warm Start-only product and copy decisions below. Preserve existing source, privacy, owner-scope and human-action checks.
 

@@ -1,3 +1,6 @@
+import { createMemoryStore } from './src/memory-store.js';
+import { createMemoryAgent } from './src/memory-agent.js';
+import { createConversationService } from './src/conversation-service.js';
 import { createWarmStart } from './src/warm-start.js';
 import { createChatConnectors } from './src/chat-connectors.js';
 import { createRelationships } from './src/relationships.js';
@@ -14,6 +17,9 @@ import { uid, now, hash, text, email, ensure, only, safeEqual, AppError } from '
 const ROOT = dirname(fileURLToPath(import.meta.url));
 export function makeApp(config = {}) {
     const store = openStore(config.dbPath), domain = createDomain(store), auth = createAuth(store, config), ai = createAI(store, domain, { key: config.openaiKey, model: config.openaiModel, dailyLimit: config.dailyLimit, fetchImpl: config.fetchImpl, requestTimeoutMs: config.aiRequestTimeoutMs, provider: config.aiProvider, vertexProject: config.vertexProject, vertexAccessToken: config.vertexAccessToken, tokenProvider: config.tokenProvider });
+    const memory = createMemoryStore(store, domain);
+    const memoryAgent = createMemoryAgent(store, domain, memory, { vertexProject: config.vertexProject, vertexModel: config.openaiModel, tokenProvider: config.tokenProvider, vertexAccessToken: config.vertexAccessToken, fetchImpl: config.fetchImpl });
+    const conversations = createConversationService(store, domain, memoryAgent, dispatch, config);
     const relationships = createRelationships(store, domain);
     const warm = createWarmStart(store, domain);
     const sourceReview = createSourceReview(store, domain, warm);
@@ -45,7 +51,23 @@ export function makeApp(config = {}) {
     async function dispatch(req, url, input, s) {
         const w = s.user.workspace_id, p = url.pathname, m = req.method, match = (re) => p.match(re);
         if (m === 'GET' && p === '/api/state')
-            return { ...domain.state(w), ai: ai.status(w), user: s.user, release: '1.3.2', demo: config.demo === true };
+            return { ...domain.state(w), ai: ai.status(w), memoryAgent: memoryAgent.status(w), user: s.user, release: '1.4.0', demo: config.demo === true };
+        if (m === 'GET' && p === '/api/memory') return { ...memory.state(w), agent: memoryAgent.status(w) };
+        if (m === 'GET' && p === '/api/memory/search') return memory.retrieve(w, { query: url.searchParams.get('q') || '', limit: Math.min(25, Math.max(1, Number(url.searchParams.get('limit')) || 20)), contact_id: url.searchParams.get('contact_id') || undefined, project_id: url.searchParams.get('project_id') || undefined });
+        if (m === 'POST' && p === '/api/memory/sources') return memory.ingest(w, input);
+        let mem = match(/^\/api\/memory\/sources\/([\w-]+)$/);
+        if (mem && m === 'GET') return memory.getSource(w, mem[1]);
+        if (mem && m === 'PATCH') return wrap(() => domain.editNote(w, mem[1], input));
+        mem = match(/^\/api\/memory\/sources\/([\w-]+)\/(organize|forget)$/);
+        if (mem && m === 'POST') return mem[2] === 'forget' ? memory.forgetSource(w, mem[1], input) : memoryAgent.organize(w, mem[1], { use_ai: false, ...input });
+        mem = match(/^\/api\/memory\/items\/([\w-]+)\/(review|supersede)$/);
+        if (mem && m === 'POST') return mem[2] === 'review' ? memory.review(w, mem[1], input) : memory.supersede(w, mem[1], input);
+        if (m === 'POST' && p === '/api/memory/agent/ask') return memoryAgent.ask(w, { use_ai: false, ...input });
+        if (m === 'GET' && p === '/api/memory/agent/history') return memoryAgent.history(w, url.searchParams.get('thread_id') || undefined);
+        mem = match(/^\/api\/memory\/agent\/runs\/([\w-]+)(?:\/actions\/(\d+)\/(confirm))?$/);
+        if (mem && m === 'GET' && !mem[3]) return memoryAgent.getRun(w, mem[1]);
+        if (mem && m === 'POST' && mem[3]) return memoryAgent.confirmAction(w, mem[1], Number(mem[2]), input);
+        if (m === 'POST' && p === '/api/memory/conversations/message') return conversations.message(s, input);
         if (m === 'GET' && p === '/api/warm')
             return warm.home(w);
         const sr = match(/^\/api\/warm\/source-reviews\/([\w-]+)(?:\/(confirm))?$/);
@@ -179,7 +201,7 @@ export function makeApp(config = {}) {
             auth.rate('reauth:' + s.user.id, 10);
             only(input, ['password']);
             await auth.confirm(s.user.id, input.password);
-            return { ...domain.export(w), extensions: { warm_start: warm.export(w), chat: chats.export(w) } };
+            return { ...domain.export(w), extensions: { warm_start: warm.export(w), chat: chats.export(w), memory: memory.state(w), agent: memoryAgent.history(w) } };
         }
         if (m === 'POST' && p === '/api/restore') {
             auth.rate('reauth:' + s.user.id, 10);
@@ -227,7 +249,7 @@ export function makeApp(config = {}) {
                 ensure(!req.headers['sec-fetch-site'] || req.headers['sec-fetch-site'] !== 'cross-site', 'Cross-site requests are not allowed.', 403, 'invalid_origin');
             }
             if (p === '/api/health' && req.method === 'GET')
-                return send(res, 200, { ok: true, version: '1.3.2' });
+                return send(res, 200, { ok: true, version: '1.4.0' });
             if (p === '/api/auth/status' && req.method === 'GET') {
                 const session = auth.resolve(getToken(req));
                 return send(res, 200, { setupRequired: !auth.configured(), registrationOpen: auth.registrationOpen(), invitationRequired: !!config.registrationToken, authenticated: !!session, user: session?.user ?? null, csrf: session?.csrf ?? null });
@@ -333,7 +355,7 @@ export function makeApp(config = {}) {
     });
     server.requestTimeout = 60000;
     server.headersTimeout = 20000;
-    return { server, store, domain, auth, ai, warm, chats, async close() { await ai.drain(); await chats.drain(); await new Promise(r => server.close(r)); store.close(); } };
+    return { server, store, domain, auth, ai, warm, chats, memory, memoryAgent, conversations, async close() { await conversations.close(); await memoryAgent.drain(); await ai.drain(); await chats.drain(); await new Promise(r => server.close(r)); store.close(); } };
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
     try {
