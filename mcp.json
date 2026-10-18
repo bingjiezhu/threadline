@@ -1,0 +1,11 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "threadline": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${PLUGIN_ROOT}/scripts/threadline-mcp.mjs"],
+      "cwd": "${PLUGIN_ROOT}"
+    }
+  }
+}

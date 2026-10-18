@@ -1,0 +1,2 @@
+We require private deployment inside our own environment.
+Budget will need a separate review.

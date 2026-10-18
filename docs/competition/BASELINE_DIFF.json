@@ -1,0 +1,332 @@
+{
+  "baseline_archive": "Threadline_App_v1.2.0.zip",
+  "baseline_archive_sha256": "dd1c4fb788b5164924cfe0b160f5abef9096058b560ef79c5250154306c3a666",
+  "release": "1.3.0",
+  "generated_at_utc": "2026-10-18T00:52:57.645020+00:00",
+  "comparison_scope": "Runtime, tests, scripts, integration templates, media authoring code and root configuration. Generated artifacts, docs and deliverables excluded. Full original manifest is included separately.",
+  "counts": {
+    "modified": 33,
+    "added": 20
+  },
+  "changes": [
+    {
+      "path": ".env.example",
+      "change": "modified",
+      "baseline_sha256": "5c71e604b5f59859b604c334c262e711e107eedcdc355afecb815e0b683f1371",
+      "release_sha256": "2050eee72c553bee8e4bf40e4cb4550e52c0dcaa20d37619e37c29ee5321896e"
+    },
+    {
+      "path": ".gitignore",
+      "change": "modified",
+      "baseline_sha256": "bb6a75b43c425b405462bdeead6040430e5f72b4245aaed4ce2ac37ca99ec3a3",
+      "release_sha256": "915e702cfe2bd9a172cea08ebd67d54c94d50bb80f83da51642c132dd962ee81"
+    },
+    {
+      "path": "AGENTS.md",
+      "change": "modified",
+      "baseline_sha256": "e0a6e968f3630c953a46cfb89a8f1868b2fd1ce98a0532d2fee5d0f86f1eb5bb",
+      "release_sha256": "b1f1fb08ed603ad92394749b5eaf1541d59a8e19952cb68c12b6acca4f5c17fa"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "change": "modified",
+      "baseline_sha256": "2b14a72ef7e287d3345cfecc74bdd20ff0e114e636fde0dbaf48e397556a5a4a",
+      "release_sha256": "dd84737b0a3d64275f2921d5e0f091dec082256225866156008786ac4414b11c"
+    },
+    {
+      "path": "Dockerfile",
+      "change": "modified",
+      "baseline_sha256": "11d7e1156d01b1e4d43deb529b3ff5c84a1acda4f5ff5c21a3604e88f27b0de9",
+      "release_sha256": "8e55cf341eec72b63d82e73aad79d8436614be60d28b8fb3f3da46d62c823bf7"
+    },
+    {
+      "path": "README.md",
+      "change": "modified",
+      "baseline_sha256": "bd6f332b236c26814cc64cb420f45d26045a12e093fea700a626a8ff05b21914",
+      "release_sha256": "f3063021f73908c9e372c1e7124cc55fd941ace61d74d7220dd09ed18dc8eed8"
+    },
+    {
+      "path": "integrations/discord/commands.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "release_sha256": "81ccef46a6f817479dffbdc16b20c717b23064ce91186ac265c1c96d29756a20"
+    },
+    {
+      "path": "integrations/slack/manifest.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "release_sha256": "8d5000482751fc3723d6ba067f2d55c57f8b4a3066ed9a8cb7675bd9f9f5238a"
+    },
+    {
+      "path": "package-lock.json",
+      "change": "modified",
+      "baseline_sha256": "e6d91fd48ac39d25e810a8069339d06e583795c6ecfbb60b9fc67e1dd4263f4a",
+      "release_sha256": "edb4d616431c43f16d99d5d390d986644dbd8d747d07eb2c3ee4d03d6fc177c6"
+    },
+    {
+      "path": "package.json",
+      "change": "modified",
+      "baseline_sha256": "81b59abbe43d3f55809ff1882c269f7e0737caf4f1ffb6e1358f7d3dcc6cca75",
+      "release_sha256": "6d2f746b11aa4fe26f46698851dd32a60bd19bc70c8d1534b249e9835bed9eff"
+    },
+    {
+      "path": "public/app.js",
+      "change": "modified",
+      "baseline_sha256": "ab8e0923f07de10bc30284b906a4b4d8ac3d031ba016c3ec488f6ebb6e72d2f4",
+      "release_sha256": "493c0e8ca4910b3a35d3e8448e5526a453a68227aa6df78ac381228c13dfd932"
+    },
+    {
+      "path": "public/guide-warm.css",
+      "change": "added",
+      "baseline_sha256": null,
+      "release_sha256": "8c828e38dd937f66b388d1597311b5eedba07f37ef358175656e344d0c1ca2f1"
+    },
+    {
+      "path": "public/guide-warm.html",
+      "change": "added",
+      "baseline_sha256": null,
+      "release_sha256": "2f08eebef704f8a173697b8e9a2cb09b55bb09dd43095fc241de9ab012f74bd2"
+    },
+    {
+      "path": "public/guide.css",
+      "change": "added",
+      "baseline_sha256": null,
+      "release_sha256": "b6e90b009a6c2d83ba5761a9f154eacd3a73c6c9fed3312fd43cd701cc679ebe"
+    },
+    {
+      "path": "public/guide.html",
+      "change": "modified",
+      "baseline_sha256": "d9ad092590e5ffc069bcb087da800615299ec8af8f69856e7dd2a2e31f0461b6",
+      "release_sha256": "0bcfa4ef6857e804a60151503be52fe47e0f2ee062c610a9984c7cf2c2400ba6"
+    },
+    {
+      "path": "public/index.html",
+      "change": "modified",
+      "baseline_sha256": "1d45fb1729550c2a2ab1748649abe610f95270e9ec3f1bed0119141f86b7d6f3",
+      "release_sha256": "f6aec01677b88f2b989ff68f595a99e6c79cfc39b7f2e783c7111d1c7ac2b3b8"
+    },
+    {
+      "path": "public/marketing.css",
+      "change": "modified",
+      "baseline_sha256": "31761250f6b5661dfd11f15bf0c4670f4eabf0d6fd72edfb1e7937eb4c3b9181",
+      "release_sha256": "4b6d004aa7766967824bc1ec7ac8720a0b46b50603972b40a9c5d118d386d1dd"
+    },
+    {
+      "path": "public/warm-start.html",
+      "change": "added",
+      "baseline_sha256": null,
+      "release_sha256": "157294e168b1aaeef594a3a7d19d0bb802ea4d9ebc9072420f173e464848d261"
+    },
+    {
+      "path": "public/warm-ui.js",
+      "change": "added",
+      "baseline_sha256": null,
+      "release_sha256": "9481635524a1ef58e71eaa6abaf16d09888f27e5e04430e614c3ce5c8deb0424"
+    },
+    {
+      "path": "public/warm.css",
+      "change": "added",
+      "baseline_sha256": null,
+      "release_sha256": "b726d4d72df185b358be346e5c8af1f54833fb16aee9a11ab8effcd1e723bfe9"
+    },
+    {
+      "path": "public/welcome.html",
+      "change": "modified",
+      "baseline_sha256": "9882496915c4ac1d563fb33da25f8edd9b32a781e0d68546826b5ceaa7c858cf",
+      "release_sha256": "6281c3e227f769a2136fd5c56e7c4a76cf6b4681c7433c18a6a5e37e0bb25385"
+    },
+    {
+      "path": "scripts/ai-warm-smoke.js",
+      "change": "added",
+      "baseline_sha256": null,
+      "release_sha256": "18c2d4e4971e56d0b1e7b0a6b0addf3ff2fcd9574fdd2554bbf10ebf4f2b4081"
+    },
+    {
+      "path": "scripts/demo-warm.js",
+      "change": "added",
+      "baseline_sha256": null,
+      "release_sha256": "2975bcfdafd66c822d1943fde42dbca30a4b280c2535864f7d95ee9fcfaff28d"
+    },
+    {
+      "path": "scripts/register-discord.js",
+      "change": "added",
+      "baseline_sha256": null,
+      "release_sha256": "dcb8935e8ead4ad4dedeaade1a374a91e80ba28bbf565601fcf6d4d14e8f3a2e"
+    },
+    {
+      "path": "scripts/validate.js",
+      "change": "modified",
+      "baseline_sha256": "2e9db2eb2a14eee2148e6c09d7b414d3ef6c6dfef5cea091264a01bf6ef767e8",
+      "release_sha256": "3d6a7dca5f25f3a49e311710fd0ea70c6cd0ffd0ca2102f7c38ee04089db2649"
+    },
+    {
+      "path": "scripts/verify-baseline-upgrade.js",
+      "change": "modified",
+      "baseline_sha256": "18f5f651b846b54d645c427dbd90e20566556d9d0eca267cabe60960962864b7",
+      "release_sha256": "534946bb0b5c88d5e0ee57898619fa6430c7aa1cf24b4e1029c93af31544fb3b"
+    },
+    {
+      "path": "scripts/verify-install.py",
+      "change": "modified",
+      "baseline_sha256": "87bfc63b51bdccd8140165ec8578b6eada0b3b6b8e506895f6d1064480df8a59",
+      "release_sha256": "c4e1a062cee648763c9371ec82f52b9582d2abc61f3779bbe632ea3089c6a485"
+    },
+    {
+      "path": "server.js",
+      "change": "modified",
+      "baseline_sha256": "0414c4d895ab9e647acfee88ac9d90008365cd827606a5b15e07ac122dc1a303",
+      "release_sha256": "4e210aa7016d92ce2f87340ef8713b564260931e6f8260ff1b4a4c9c34be1bfd"
+    },
+    {
+      "path": "src/ai.js",
+      "change": "modified",
+      "baseline_sha256": "29d0949e0e104c4ad0815dfbefcd3bebd2717616d8b4aef56a9c13939079cc6d",
+      "release_sha256": "bee747b14bb0034b5545467ed3dbf2299b64537b163f245329ba576d90703ead"
+    },
+    {
+      "path": "src/capture-utils.js",
+      "change": "modified",
+      "baseline_sha256": "947bac9ba089603afb7aaa9f7627e3a67e2ca014c800407b4b081ff2c5a9f0e0",
+      "release_sha256": "6d4201674f44ed8781a5625289d1ac8606ad7ba110bd8d98761fb63148d14b88"
+    },
+    {
+      "path": "src/chat-connectors.js",
+      "change": "added",
+      "baseline_sha256": null,
+      "release_sha256": "637c48368625804478ec77229b51d6a683e09acf4e058538fbb37b385c23eca8"
+    },
+    {
+      "path": "src/store.js",
+      "change": "modified",
+      "baseline_sha256": "58f70daef76b56039ce6646da237cf2e50586eb13cced7f369c5b902719b3aeb",
+      "release_sha256": "755ea8a10e1eb9fa467c5e9364d14eda8fce45faf6580382f11584256fa252e9"
+    },
+    {
+      "path": "src/warm-fixture.js",
+      "change": "added",
+      "baseline_sha256": null,
+      "release_sha256": "879fec5f8c511971eaf555364093083c2f971c166f6d8a148483d2427a78958f"
+    },
+    {
+      "path": "src/warm-schema.js",
+      "change": "added",
+      "baseline_sha256": null,
+      "release_sha256": "3271857ea180c84100439a04d4c34d1bd0b2f0635d477e700b431405a3258517"
+    },
+    {
+      "path": "src/warm-start.js",
+      "change": "added",
+      "baseline_sha256": null,
+      "release_sha256": "92c0299db5f438e6131325d584e616c818d9bc91ad41f39d9f96791739b42678"
+    },
+    {
+      "path": "tests/browser/bridge.py",
+      "change": "modified",
+      "baseline_sha256": "7ead2438a1e4097b23807f99a44c0ef958115160a12e817f187ebe1742148bf1",
+      "release_sha256": "9afb4050ecbdc6ba05cf57476d48a8438409cdac7c78c8a8a5e5ebeaafb90ae1"
+    },
+    {
+      "path": "tests/browser/focus_check.py",
+      "change": "modified",
+      "baseline_sha256": "70750c41e55f4983f8baf7db2d5ede2fa2158a08f82918e986185565e6f77435",
+      "release_sha256": "54f55e4eab3ffb0363e4b6c82816004688e6ccc4c53af5ea955590d6fb129f3c"
+    },
+    {
+      "path": "tests/browser/landing_check.py",
+      "change": "modified",
+      "baseline_sha256": "d61fca57074ad3c1b81032ad15d629b881a37434a392f78bb84309c8244b65f6",
+      "release_sha256": "07f254539c9b3043014aaf8a6ffc82fb9f0ba0a13be15cde19c739d53f92fd1d"
+    },
+    {
+      "path": "tests/browser/run_warm.py",
+      "change": "added",
+      "baseline_sha256": null,
+      "release_sha256": "3704597276b8d8f551a829741bdf0e2660e1969b62b3836900dc74e1727e1498"
+    },
+    {
+      "path": "tests/browser/warm_check.py",
+      "change": "added",
+      "baseline_sha256": null,
+      "release_sha256": "ec299d1f49e31db2485a6c95f119d44e4122ff853504e4009c7c90abdcce0216"
+    },
+    {
+      "path": "tests/capture-http.test.js",
+      "change": "modified",
+      "baseline_sha256": "69ea10387d3bd9e921c7c359abfdcc09ea133c8ad9ba7a82869cfe6f20ac9cbb",
+      "release_sha256": "6d9a8ef71b97cef7b6d504d523f6692e955df131c63d9171d60ee5e186963ee9"
+    },
+    {
+      "path": "tests/chat-connectors.test.js",
+      "change": "added",
+      "baseline_sha256": null,
+      "release_sha256": "1acfd049e2de784f6268a5be182319d6168bfb7189ebb213a6547195e0c55be7"
+    },
+    {
+      "path": "tests/demo.test.js",
+      "change": "modified",
+      "baseline_sha256": "7f07688d874d37222e88fcfffae7fc36380965483efa6339711c9b212f909e68",
+      "release_sha256": "1dfe4ed0b779ee3b704109cce0275fd0cc79fb790e9fc4f949e1c89e12d0d1e6"
+    },
+    {
+      "path": "tests/http.test.js",
+      "change": "modified",
+      "baseline_sha256": "67fb520b2fa536ba60b117c2195965cc9c72ff5a22f21887811a332ac6a3da5b",
+      "release_sha256": "11b0548f04e111fc94ab2e3c698ac74ad8b214793978091ebef4ec387b343e21"
+    },
+    {
+      "path": "tests/migration.test.js",
+      "change": "modified",
+      "baseline_sha256": "60d88ba2bd974da8f23cadaf2cee39e7025f8cf804c6bdd290666b0905cfd8fd",
+      "release_sha256": "fecc4f81a4a005caa55e8a48fe00dddeab79a03d0ebbba30711f20d3239f68b9"
+    },
+    {
+      "path": "tests/warm-start.test.js",
+      "change": "added",
+      "baseline_sha256": null,
+      "release_sha256": "92084c745be5a4dcd70a420d1cf88f233b8b10cc201ed9df175bd1c43e226207"
+    },
+    {
+      "path": "tools/media/README.md",
+      "change": "modified",
+      "baseline_sha256": "d9cd9539eac99c42806ada722b0f364234cdd3fbccc75250c7edb9f3e6d2bd73",
+      "release_sha256": "5f23f27b3c04e24977107799ab44063fa4a0f7ef35397dfb11ef01c92b3e79ba"
+    },
+    {
+      "path": "tools/media/build_media.py",
+      "change": "modified",
+      "baseline_sha256": "2388d4fb4688954d5182ea6ca115c0cfca3ca61698ecc157636fff2c52ea473a",
+      "release_sha256": "d8acc4c6d7d7cab7aee570f98055697c38fef3cf8430a002c77429db81fc0e5f"
+    },
+    {
+      "path": "tools/media/build_pitch.cjs",
+      "change": "modified",
+      "baseline_sha256": "fb5d5075133de3382b692cc53d7165264401246b7d690191688bf179359cb43a",
+      "release_sha256": "cd9a7690395f6d621869306419618cc8d74978a8970f78ecc0b2edf83c29ce38"
+    },
+    {
+      "path": "tools/media/capture.py",
+      "change": "modified",
+      "baseline_sha256": "0fb8e86c7d55e64f1b0b02f04ed6d9af935dfc2bf8a6e5623588dcb87457f530",
+      "release_sha256": "a33269315b1d3542412edca3958fe71d6487e2db0ab5ef047a47da09067349c5"
+    },
+    {
+      "path": "tools/media/capture_warm.py",
+      "change": "added",
+      "baseline_sha256": null,
+      "release_sha256": "bbf35af19797fce61d3a822d2d91f1fc62965de493176616a7c57ac08a6fcee0"
+    },
+    {
+      "path": "tools/media/package.json",
+      "change": "modified",
+      "baseline_sha256": "34a6a71cad21b7007f0b60c3f4fc4b6bdcef5d9b3e4df0ffd730fa21458a88e7",
+      "release_sha256": "38e7529498bd002a4fcbf92143789638fc772d8b5b16dc47e828c5d5b1cc5f0e"
+    },
+    {
+      "path": "tools/media/prepare_assets.py",
+      "change": "modified",
+      "baseline_sha256": "245a86bdf5a627e0a2f9e4412bafbf2a001764fb88cc29c7d2e754b5c9cac3b8",
+      "release_sha256": "69f303095ad95ee722feac0344149a65276ce9fde0374cb4295efbf4031e00dd"
+    }
+  ],
+  "limits": "This is a content difference, not independent proof of public availability, authorship, start time or event-window eligibility. Formatting is not a separate product feature."
+}

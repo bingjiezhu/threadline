@@ -1,0 +1,30 @@
+{
+  "release": "1.3.2",
+  "edition": "Clarity edition",
+  "core_slides": 4,
+  "appendix_slides": 4,
+  "stage_clip_seconds": 42,
+  "submission_film_seconds": 150,
+  "runtime": "Node.js >=22.16, SQLite; no third-party runtime dependencies",
+  "entry": "/#first-task",
+  "rehearsal_command": "npm run demo:clear",
+  "verification": "Read docs/VERIFICATION.md and the final external report. No external-platform or model-quality execution is claimed.",
+  "not_executed": [
+    "model quality beyond bounded synthetic checks",
+    "real Slack/Discord installation",
+    "native browser production acceptance",
+    "native PowerPoint playback",
+    "customer interviews/payments",
+    "public publication",
+    "Devpost submission/eligibility confirmation"
+  ],
+  "readiness_revision": "2026-10-18-source-review-iteration2",
+  "submission_film": "deliverables/Threadline_SourceReview_Devpost_150s_EN.mp4",
+  "live_runtime_check": {
+    "provider": "Google Vertex AI",
+    "model": "gemini-3.8-flash",
+    "data": "synthetic",
+    "evidence": "release-evidence/2026-10-18/iteration2/after/"
+  },
+  "iteration2": "Unconfirmed selected-source annotation with separate human confirmation; schema3 unchanged"
+}

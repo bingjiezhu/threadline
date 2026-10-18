@@ -1,0 +1,15 @@
+{
+  "name": "threadline-first-task",
+  "version": "0.1.0",
+  "description": "Local first-task evidence review and unapproved planning through the existing Threadline engine.",
+  "license": "Apache-2.0",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "requires_local_executor": true,
+  "interface": {
+    "displayName": "Threadline First Task",
+    "shortDescription": "Check sources and prepare a first-task proposal",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"]
+  }
+}

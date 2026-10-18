@@ -1,0 +1,8 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {workspaceOrigin,captureURL} from '../extensions/chrome/url.js';
+test('Capture extension sends selected content in a fragment, not the HTTP query',()=>{const u=new URL(captureURL('http://localhost:4173','Private text & \ud83e\udde0','https://example.com/thread?token=secret#x'));assert.equal(u.search,'');assert.equal(u.pathname,'/app');const p=new URLSearchParams(u.hash.split('?')[1]);assert.equal(p.get('text'),'Private text & \ud83e\udde0');assert.equal(p.get('url'),'https://example.com/thread');assert.doesNotMatch(u.toString(),/secret/);});
+test('Only explicit localhost or trusted HTTPS origins are permitted',()=>{assert.equal(workspaceOrigin('https://my-workspace.example'),'https://my-workspace.example');for(const x of ['http://remote.example','https://u:p@example.com','https://example.com/app','https://example.com/?t=secret','javascript:alert(1)'])assert.throws(()=>workspaceOrigin(x));});
+test('Extension refuses oversized text instead of silently losing part of it',()=>{assert.throws(()=>captureURL('http://localhost:4173','x'.repeat(10001)),/10,000/);assert.throws(()=>captureURL('http://localhost:4173','  '));});
+test('Manifest has no blanket host, history, clipboard, or content-script access',()=>{const m=JSON.parse(readFileSync(new URL('../extensions/chrome/manifest.json',import.meta.url)));assert.deepEqual(m.permissions,['contextMenus','storage']);for(const k of ['host_permissions','content_scripts','externally_connectable'])assert.equal(m[k],undefined);});
