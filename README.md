@@ -57,3 +57,9 @@ npm run validate
 See `docs/USER_GUIDE.md`, `docs/OPERATIONS.md` and `docs/ARCHITECTURE.md` for usage, full database backup and implemented behavior.
 
 Threadline builds on an existing Apache-2.0 application. This final consolidation restores personal relationship management as the main entry while retaining the newer core. The inherited 83-second English walkthrough is earlier real-app evidence, not a claim that all code or footage was created in this pass. Preserve `LICENSE` and `NOTICE`; see `PROVENANCE.md` for the contribution boundary.
+
+## Optional ASI:One fictional demo
+
+An optional official ACP/Mailbox adapter executes the same app’s reviewed personal follow-up through ASI:One: dated source quotes, explicit acceptance, chosen-quote draft permission, edited draft and a separately confirmed app task. One actual ASI chat completed this flow on disposable fictional records. No customer was contacted and no private user database was exposed.
+
+See [adapter setup and limits](integrations/agentverse/README.md). The live demo agent is [Threadline Personal Demo](https://agentverse.ai/agents/details/agent1qg9nvtv8gsj0zah5qe29pzu6f3dqr5k5mcxj56gqezvx63qwxk5mknxkgsr/profile); availability depends on its local process remaining online. This does not implement ASI access to a user’s real private account.

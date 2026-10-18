@@ -7,13 +7,13 @@ ARCHIVE=OUT/'Threadline_Final_Source.zip'
 def sha(data):return hashlib.sha256(data).hexdigest()
 def main():
  OUT.mkdir(parents=True,exist_ok=True)
- banned={'.git','.data','.env','node_modules','__pycache__','artifacts','release-evidence','backups','.media-venv','.venv'}
- excluded={'.sqlite','.sqlite3','.db','.mp4','.webm','.mov','.mp3','.wav','.aiff','.aif','.pptx','.pdf','.woff','.woff2','.ttf','.otf','.log','.pyc','.zip'}
+ banned={'.git','.runtime','.data','.env','node_modules','__pycache__','artifacts','release-evidence','backups','.media-venv','.venv'}
+ excluded={'.sqlite','.sqlite3','.db','.mp4','.webm','.mov','.mp3','.wav','.aiff','.aif','.pptx','.pdf','.woff','.woff2','.ttf','.otf','.log','.jsonl','.pyc','.zip'}
  payload={}
  for p in sorted(ROOT.rglob('*')):
   if not p.is_file() or p.is_symlink():continue
   rel=p.relative_to(ROOT)
-  if any(part in banned for part in rel.parts)or p.name=='.DS_Store'or p.suffix.lower()in excluded or p.name in {'SOURCE_MANIFEST.json','SOURCE_ARCHIVE_RECEIPT.json'}:continue
+  if any(part in banned for part in rel.parts)or p.name=='.DS_Store'or p.suffix.lower()in excluded or p.name in {'SOURCE_MANIFEST.json','SOURCE_ARCHIVE_RECEIPT.json','LOCAL_AGENT_INFO.json','LOCAL_ACCEPTANCE.json','PROGRESS.json','ASI_ACCEPTANCE.json','REGISTRATION_FIRST_FAILURE.json'}:continue
   if p.name.startswith('.env')and p.name!='.env.example':continue
   data=p.read_bytes()
   if re.search(rb'sk-(?:proj-)?[A-Za-z0-9_-]{35,}|AIza[0-9A-Za-z_-]{30,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|ya29\.[A-Za-z0-9_-]{30,}',data):raise RuntimeError('Possible secret format in '+str(rel))

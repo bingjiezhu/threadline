@@ -1,0 +1,9 @@
+.runtime/
+.venv/
+*.log
+*.jsonl
+__pycache__/
+LOCAL_AGENT_INFO.json
+LOCAL_ACCEPTANCE.json
+PROGRESS.json
+ASI_ACCEPTANCE.json

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..'), errors = [];
 let scripts = 0, english = 0, json = 0;
-function walk(p) { return readdirSync(p, { withFileTypes: true }).flatMap(e => { if (['.git', '.data', 'node_modules', 'backups', 'test-results', '__pycache__', 'release-evidence'].includes(e.name))
+function walk(p) { return readdirSync(p, { withFileTypes: true }).flatMap(e => { if (['.git', '.data', '.runtime', '.venv', 'node_modules', 'backups', 'test-results', '__pycache__', 'release-evidence'].includes(e.name))
     return []; const q = join(p, e.name); return e.isDirectory() ? walk(q) : [q]; }); }
 for (const f of walk(root)) {
     const rel = relative(root, f), ext = extname(f);
