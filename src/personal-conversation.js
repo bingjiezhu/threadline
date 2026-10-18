@@ -314,7 +314,7 @@ export async function createAssistant({env=process.env,client,now=()=>new Date()
           }
           if(hadPending)reply=say(s,'上一条预览尚未保存，我先处理这条。\n\n','The previous preview was not saved; I am handling this request instead.\n\n')+reply;
         }
-        if(!s.introduced&&state.demo){reply=say(s,'我连着你电脑上的模拟工作区。\n\n','I am connected to the fictional workspace on your computer.\n\n')+reply;s.introduced=true;}
+        if(!s.introduced&&state.demo){reply=say(s,'这个工作区也包含一些模拟示例。\n\n','This workspace also includes fictional examples.\n\n')+reply;s.introduced=true;}
       }
     }catch{reply=say(s,'暂时没能读取工作区，未确认任何新保存。请稍后重试；若刚才在保存，请先查看网页。','I could not read the workspace or confirm a new save. Try again shortly; check the app first if a save was in progress.');}
     if(s.modelFallback){reply=say(s,s.modelFallback==='quota'?'今天的 AI 理解次数已用完，下面按本地规则处理。\n\n':'AI 理解暂时不可用，下面按本地规则处理。\n\n','AI parsing is unavailable; this response uses local rules.\n\n')+reply;delete s.modelFallback;}
