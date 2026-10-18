@@ -1,8 +1,8 @@
 # Threadline
 
-**Save your context. See what you remember.**
+**Remember the people, projects and promises that matter.**
 
-Threadline is a small, self-hosted personal memory system. Save a conversation, idea, preference or project update, then browse the original content in one place. Optional Gemini organization proposes useful memories; the website shows each one beside the exact source it came from.
+Threadline is a personal relationship and project workspace. Keep the context behind each person, see what changed in a project, and follow through on commitments. Overview, Contacts, Projects, Notes & evidence, Follow-ups, Tasks, Capture, Find people and This week remain the main workflow. Memory and Ask Threadline help you collect and recall that context without replacing those tools.
 
 ## Start
 
@@ -12,21 +12,23 @@ Requires Node.js 22.16 or newer. No dependency installation is needed for the co
 npm start
 ```
 
-Open **http://localhost:4173/#memory** and create an account. New accounts start empty. Sources, memories and agent conversations persist in SQLite across refreshes and server restarts.
+Open **http://localhost:4173/#overview** and create an account. New accounts start empty. Keep the server running while using the website.
 
-## The simple workflow
+The default setup listens on `127.0.0.1` and stores your records in `.data/threadline.sqlite` on the computer running Threadline. The browser displays the workspace; the local Node server saves the database, rather than relying on browser local storage. Core storage, search, import and relationship workflows need no cloud account or model key. `THREADLINE_DB` can select a different local database path. If you choose to host the server on another machine, records are stored on that machine.
 
-1. **Save:** choose **Add a memory**, paste the original content and optionally link a person or project.
-2. **See everything:** the Memory page opens on **Sources**, showing what you actually saved. Open a card to inspect its full text.
-3. **Organize:** use local sentence extraction, or explicitly send that one source to Gemini. Review suggested preferences, decisions, commitments and facts.
-4. **Recall:** ask the Personal agent about saved context. Answers include source quotations. Gemini synthesis is optional; local mode returns retrieved excerpts.
-5. **Correct or forget:** editing a source invalidates dependent memories and answers. Forgetting removes its active text and derived quotations. Existing backups are separate.
+## Memory that supports your relationships
+
+Save a conversation, preference or project update and link it to the relevant person or project. The **Memory** library shows the original content you saved. Search or open a source to inspect it, use optional organization to review extracted facts and commitments, or use **Ask Threadline** for context before the next conversation. Answers link back to their sources; local mode returns retrieved excerpts and Gemini synthesis is optional.
+
+Editing a source invalidates dependent memories and answers. Forgetting removes its active text and derived quotations. Existing backups are separate.
 
 Task proposals require a separate confirmation. Photon and ASI:One are optional message channels to this same backend; they do not have separate copies of your memory.
 
 ## Bring in existing memory
 
-Choose **Memory → Import agent memory**, select **Codex** or **Claude**, then choose Markdown/text files or a memory folder. Preview the originals and select what to import. Identical content is reused; changed files become new snapshots. Large files are preserved as linked parts. You can filter the memory library by Codex, Claude, iMessage, ASI:One or web notes.
+Choose **Memory → Import local memory**, select **Codex** or **Claude**, then choose Markdown/text files or a memory folder. Preview the originals and select what to import. Identical content is reused; changed files become new snapshots. Large files are preserved as linked parts. You can filter the memory library by Codex, Claude, iMessage, ASI:One or web notes.
+
+Import copies the chosen content into the Threadline database. It leaves your original Codex/Claude files unchanged and does not set up automatic synchronization. In the default local setup, preview and import stay between your browser and the local server: no model call or cloud upload is part of import. Only files you select are read.
 
 ## Capture from iMessage or ASI:One
 
@@ -36,7 +38,7 @@ In your connected private chat, send:
 
 This saves the original message directly to Memory. Questions do not become notes. A separate request such as **Remind me to send Alex the agenda tomorrow** still previews the task and waits for **Confirm**. No inferred task or external message is created just because you saved a note.
 
-Overview, Contacts, Projects, Notes & evidence, Follow-ups, Tasks, Capture, Find people and This week remain available alongside Memory and Personal agent.
+These optional messaging channels use external providers to transport messages; they are not an offline connection. Received content is saved in the same Threadline database as website notes.
 
 ## Optional Gemini
 
@@ -48,13 +50,13 @@ THREADLINE_VERTEX_PROJECT=your-project-id
 THREADLINE_VERTEX_MODEL=gemini-3.8-flash
 ```
 
-Use an available model in your project. Each website request explicitly chooses whether to send the selected source or bounded retrieved excerpts. No key or credential is delivered to the browser. See [the memory architecture and API](docs/PERSONAL_MEMORY.md) for data lifecycle, testing and limits.
+Use an available model in your project. Each website request explicitly chooses whether to send the selected source or bounded retrieved excerpts to the external Gemini service. Importing or storing a file does not grant this consent. No key or credential is delivered to the browser. See [the memory architecture and API](docs/PERSONAL_MEMORY.md) for data lifecycle, testing and limits.
 
 ## Release history
 
 The current `main` branch includes the personal memory system developed **after** the LA Hacks submission. The immutable [`la-hacks-2026` release](https://github.com/bingjiezhu/threadline/releases/tag/la-hacks-2026) retains the competition snapshot. Current capabilities must not be attributed retroactively to that submission.
 
-The earlier relationship, follow-up and optional onboarding tools remain available. Their original workflows and limitations are documented below.
+The relationship and follow-up workflows are described below. Earlier optional onboarding tools also remain available.
 
 ## A familiar situation
 
@@ -63,16 +65,6 @@ In the fictional walkthrough, Morgan Ellis spoke with Alex Morgan at Northstar o
 Save the new delivery note, review its evidence, and refresh follow-ups. Threadline can connect a later confirmed capability with an earlier approved requirement on the same topic. Open both original quotations, check the dates and unresolved questions, then prepare a message you can edit and send yourself.
 
 This is a reason to revisit the relationship, not proof that the client has a budget or wants to buy. Promises become useful when you follow through: create a due-dated task, record actual contact separately, and keep the next conversation's context.
-
-## Run locally
-
-Requires **Node.js 22.16 or newer**.
-
-```sh
-npm start
-```
-
-Open **http://localhost:4173** and create an account. Keep the server running. Core use needs no dependency installation, cloud account or model key. Records persist in `.data/threadline.sqlite` across browser refreshes and server restarts.
 
 ## Your first useful workflow
 
@@ -110,8 +102,8 @@ Threadline builds on an existing Apache-2.0 application. This final consolidatio
 
 ## Optional ASI:One fictional demo
 
-The local post-submission personal agent now reuses the same conversation implementation as Photon and connects to the existing web workspace. It answers in English, previews notes and dated tasks, saves only after confirmation, and can recall the newly saved conversation. The current demo is restricted to its verified owner/chat pair.
+The local post-submission personal agent now reuses the same conversation implementation as Photon and connects to the existing web workspace. It answers in English, immediately saves explicit **Remember this:** requests, and previews separately requested tasks for confirmation. It can recall the newly saved conversation. The current demo is restricted to its verified owner/chat pair.
 
 See [personal-agent setup and examples](integrations/agentverse/PERSONAL_ASSISTANT.md). The original competition command-flow adapter remains documented [separately](integrations/agentverse/README.md). The live identity is still [Threadline Personal Demo](https://agentverse.ai/agents/details/agent1qg9nvtv8gsj0zah5qe29pzu6f3dqr5k5mcxj56gqezvx63qwxk5mknxkgsr/profile); availability depends on its local process remaining online. This is not general private-account linking for arbitrary ASI users.
 
-Optional [Photon personal assistant](integrations/photon/README.md): this local post-submission branch connects iMessage to the same workspace, with conversation capture, project briefs, due-dated tasks and editable drafts. Changes use natural-language previews and explicit confirmation. The competition snapshot remains unchanged; its earlier source-review delivery evidence is separate from testing this newer workflow.
+Optional [Photon personal assistant](integrations/photon/README.md): this local post-submission branch connects iMessage to the same workspace, with explicit one-step conversation capture, project briefs, due-dated tasks and editable drafts. Task creation uses a preview and explicit confirmation. The competition snapshot remains unchanged; its earlier source-review delivery evidence is separate from testing this newer workflow.

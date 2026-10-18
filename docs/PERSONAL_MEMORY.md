@@ -1,10 +1,18 @@
-# Personal memory system (1.4.0)
+# Local memory for the relationship workspace (1.4.0)
 
 This is post-submission work. The LA Hacks tag and release remain the competition snapshot.
 
+## Purpose and local storage
+
+Threadline remains a personal relationship and project workspace. Overview is the starting point for people, projects, follow-ups and promises. Memory and Ask Threadline support those workflows: collect the context behind a relationship, inspect what was saved, and recall it before deciding what to do next.
+
+With the default `npm start` setup, the Node server listens on `127.0.0.1` and SQLite persists at `.data/threadline.sqlite` on that computer. The website is a view of that database, not a separate browser-local memory store. Records survive browser refreshes and server restarts. `THREADLINE_DB` can choose another path. A deployment on a remote machine stores its database on that remote machine; visiting it does not make the storage local to the visitor.
+
+Saving, importing, searching and local extraction do not require a cloud service. Optional Gemini requests send explicitly consented content to the model provider. iMessage and ASI:One messages pass through their external providers before reaching the Threadline backend. Local database storage does not make those optional connections fully offline.
+
 ## Small, inspectable memory
 
-The main screen lists saved sources. Each source is an existing canonical note, not a second hidden document. Save a note, optionally connect it to a person/project, open its full original text, search it, edit it, or forget it. A new account has no sample content; the operator's local demonstration uses clearly fictional records.
+The Memory screen lists saved sources. Each source is an existing canonical note, not a second hidden document. Save a note, optionally connect it to a person/project, open its full original text, search it, edit it, or forget it. A new account has no sample content; the operator's local demonstration uses clearly fictional records.
 
 Optional organization creates typed proposals: facts, preferences, decisions, commitments, goals and open questions. Every proposal stores a source ID/version and a unique exact quote. Confirmation keeps an interpretation; it is not a factual truth guarantee. Repeated extraction deduplicates the same quote and category. Explicit supersession requires a later dated source and preserves metadata history.
 
@@ -16,7 +24,7 @@ All entry points write to the same owner-scoped source library: website notes, e
 
 ### Local Codex / Claude import
 
-The browser reads only files selected with the file or folder picker. Supported input is UTF-8 `.md` / `.txt`, including frontmatter and Markdown. File contents are sent only to the Threadline server after **Preview import**; preview has no database writes or response-cache persistence. **Import selected** saves exact originals and provider, relative filename, import time and hash provenance. It makes no model call and follows no embedded instructions or referenced paths.
+The browser reads only files selected with the file or folder picker. Supported input is UTF-8 `.md` / `.txt`, including frontmatter and Markdown. File contents are sent only to the Threadline server after **Preview import**; preview has no database writes or response-cache persistence. In the default local setup, this request goes to the local server. **Import selected** copies exact originals into the local application database with provider, relative filename, import time and hash provenance. The original disk files stay unchanged. Import makes no model call, performs no cloud synchronization, and follows no embedded instructions or referenced paths. It does not install a background watcher or edit the source Codex/Claude memory folder.
 
 Limits: 50 files, 1 MiB per original file, 4 MiB per batch. Files are split losslessly at newline boundaries where possible, with at most 90,000 Unicode code points per part. Source detail links the parts. Reimporting exact content reuses it; a changed file preserves earlier sources and creates only missing content. Preview/confirmation are scoped to the owner. Edits are labeled as edited since import; forgetting a part removes that part and its provenance, not the other parts or original disk file.
 

@@ -1,6 +1,10 @@
-# Current personal memory direction
+# Current relationship workspace and local memory direction
 
-The current product is a simple personal memory system: save content, list everything saved, inspect original sources, review optional extracted memories, and ask an agent over those records. Memory is the default screen. Preserve existing user data and owner isolation. SQLite is the source of truth; Photon and ASI:One are thin clients to the same backend conversation service.
+The current product remains a personal relationship and project workspace. Overview is the default screen; contacts, projects, notes, follow-ups, tasks, Capture, Find people and This week remain primary. Memory and Ask Threadline support that workflow: save and inspect context, link it to people/projects, and recall it when following through on commitments. Keep the system simple and preserve all existing useful features and user data.
+
+The default local Node server listens on loopback and stores SQLite on its own machine at `.data/threadline.sqlite` unless configured otherwise. The browser is the view, not the durable storage layer. Codex/Claude import copies only user-selected files into that database, leaves originals unchanged, and performs no model call or automatic cloud synchronization. Do not claim every deployment stores data on the browser's device: a remotely hosted server stores its database remotely. Optional Gemini sends explicitly consented content to an external service; Photon and ASI:One use external message transports. Keep these boundaries visible without changing the local default.
+
+Preserve owner isolation and the shared source library. SQLite is the source of truth; Photon and ASI:One are thin clients to the same backend conversation service.
 
 The user authorized publishing this post-submission work to GitHub. Keep the original LA Hacks release/tag intact and label later work accurately. Do not rewrite competition evidence. Read docs/PERSONAL_MEMORY.md for current architecture and verification. All default product and channel replies are English; bilingual input parsing remains supported.
 
