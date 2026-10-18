@@ -1,3 +1,4 @@
+import { createMemoryImport } from './src/memory-import.js';
 import { createMemoryStore } from './src/memory-store.js';
 import { createMemoryAgent } from './src/memory-agent.js';
 import { createConversationService } from './src/conversation-service.js';
@@ -18,6 +19,7 @@ const ROOT = dirname(fileURLToPath(import.meta.url));
 export function makeApp(config = {}) {
     const store = openStore(config.dbPath), domain = createDomain(store), auth = createAuth(store, config), ai = createAI(store, domain, { key: config.openaiKey, model: config.openaiModel, dailyLimit: config.dailyLimit, fetchImpl: config.fetchImpl, requestTimeoutMs: config.aiRequestTimeoutMs, provider: config.aiProvider, vertexProject: config.vertexProject, vertexAccessToken: config.vertexAccessToken, tokenProvider: config.tokenProvider });
     const memory = createMemoryStore(store, domain);
+    const memoryImport = createMemoryImport(store, domain, memory);
     const memoryAgent = createMemoryAgent(store, domain, memory, { vertexProject: config.vertexProject, vertexModel: config.openaiModel, tokenProvider: config.tokenProvider, vertexAccessToken: config.vertexAccessToken, fetchImpl: config.fetchImpl });
     const conversations = createConversationService(store, domain, memoryAgent, dispatch, config);
     const relationships = createRelationships(store, domain);
@@ -52,11 +54,13 @@ export function makeApp(config = {}) {
         const w = s.user.workspace_id, p = url.pathname, m = req.method, match = (re) => p.match(re);
         if (m === 'GET' && p === '/api/state')
             return { ...domain.state(w), ai: ai.status(w), memoryAgent: memoryAgent.status(w), user: s.user, release: '1.4.0', demo: config.demo === true };
-        if (m === 'GET' && p === '/api/memory') return { ...memory.state(w), agent: memoryAgent.status(w) };
+        if (m === 'GET' && p === '/api/memory') { const current=memory.state(w), imports=memoryImport.sources(w); return { ...current, sources: current.sources.map(source => ({...source, imports: imports[source.id] || []})), agent: memoryAgent.status(w) }; }
+        if (m === 'POST' && p === '/api/memory/imports/preview') return memoryImport.preview(w,input);
+        if (m === 'POST' && p === '/api/memory/imports/commit') return memoryImport.commit(w,input);
         if (m === 'GET' && p === '/api/memory/search') return memory.retrieve(w, { query: url.searchParams.get('q') || '', limit: Math.min(25, Math.max(1, Number(url.searchParams.get('limit')) || 20)), contact_id: url.searchParams.get('contact_id') || undefined, project_id: url.searchParams.get('project_id') || undefined });
         if (m === 'POST' && p === '/api/memory/sources') return memory.ingest(w, input);
         let mem = match(/^\/api\/memory\/sources\/([\w-]+)$/);
-        if (mem && m === 'GET') return memory.getSource(w, mem[1]);
+        if (mem && m === 'GET') return { ...memory.getSource(w, mem[1]), imports: memoryImport.provenance(w,mem[1]) };
         if (mem && m === 'PATCH') return wrap(() => domain.editNote(w, mem[1], input));
         mem = match(/^\/api\/memory\/sources\/([\w-]+)\/(organize|forget)$/);
         if (mem && m === 'POST') return mem[2] === 'forget' ? memory.forgetSource(w, mem[1], input) : memoryAgent.organize(w, mem[1], { use_ai: false, ...input });
@@ -201,7 +205,7 @@ export function makeApp(config = {}) {
             auth.rate('reauth:' + s.user.id, 10);
             only(input, ['password']);
             await auth.confirm(s.user.id, input.password);
-            return { ...domain.export(w), extensions: { warm_start: warm.export(w), chat: chats.export(w), memory: memory.state(w), agent: memoryAgent.history(w) } };
+            return { ...domain.export(w), extensions: { warm_start: warm.export(w), chat: chats.export(w), memory: memory.state(w), agent: memoryAgent.history(w), memory_imports: memoryImport.sources(w) } };
         }
         if (m === 'POST' && p === '/api/restore') {
             auth.rate('reauth:' + s.user.id, 10);
@@ -312,7 +316,7 @@ export function makeApp(config = {}) {
                 }
                 try {
                     const result = await dispatch(req, url, input, session);
-                    if (mutating && p != '/api/export' && p != '/api/connections/code') {
+                    if (mutating && p != '/api/export' && p != '/api/connections/code' && p != '/api/memory/imports/preview') {
                         const g = domain.workspace(w).generation;
                         store.db.prepare('INSERT OR REPLACE INTO idempotency VALUES(?,?,?,?,?,?)').run(w, key, requestHash, JSON.stringify(result), g, now());
                         store.db.prepare('DELETE FROM idempotency WHERE created_at<?').run(new Date(Date.now() - 86400000).toISOString());
@@ -355,7 +359,7 @@ export function makeApp(config = {}) {
     });
     server.requestTimeout = 60000;
     server.headersTimeout = 20000;
-    return { server, store, domain, auth, ai, warm, chats, memory, memoryAgent, conversations, async close() { await conversations.close(); await memoryAgent.drain(); await ai.drain(); await chats.drain(); await new Promise(r => server.close(r)); store.close(); } };
+    return { server, store, domain, auth, ai, warm, chats, memory, memoryAgent, memoryImport, conversations, async close() { await conversations.close(); await memoryAgent.drain(); await ai.drain(); await chats.drain(); await new Promise(r => server.close(r)); store.close(); } };
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
     try {

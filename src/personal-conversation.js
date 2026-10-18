@@ -13,6 +13,10 @@ const zhText=s=>/[\u3400-\u9fff]/.test(s);
 const confirm=/^(确认|确认[，,\s]*保存|保存|好的?[，,]?保存|好|好的|可以|是的|没问题|confirm|yes|save|ok)[。.!！\s]*$/i;
 const cancel=/^(取消|算了|不要保存|不保存|先不保存|不要了|cancel|never mind)[。.!！\s]*$/i;
 const control=/^(review|help|start|status|确认|保存|confirm|yes|save|ok|取消|cancel)$/i;
+const negativeSave=/(?:不要|别|不想|don't|do not).*(?:保存|记|写|创建|save|record|create|remember|note|log)/i;
+// Only a leading, explicit capture command permits a one-step source save.
+const quickCapturePrefix=/^(?:(?:remember this|note this|log this|save this)(?:\s*[:：]\s*|\s+)|(?:记一下|记录一下|记下来|帮我记(?:一下|下来)?|存一下)(?:\s*[:：]?\s*))([\s\S]*)$/i;
+const explicitCapture=text=>{const match=clean(text).match(quickCapturePrefix);return match&&clean(match[1])?match:null;};
 const intents=new Set(['help','brief','recent','project','opportunities','capture','task','tasks','draft','search','unknown']);
 export function localDay(date=new Date(),timezone='America/Los_Angeles'){
   return new Intl.DateTimeFormat('en-CA',{timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit'}).format(date);
@@ -96,7 +100,7 @@ function contactMatches(text,contacts){
 const active=c=>!c.archived&&c.contact_policy==='allowed';
 const topicName=(t,zh)=>zh?({'private deployment':'私有部署','private-deployment':'私有部署','single sign on':'单点登录','single-sign-on':'单点登录'}[t]||t):String(t).replace(/[-_]+/g,' ');
 
-export async function createAssistant({env=process.env,client,now=()=>new Date(),planner,persistence,recall,vertexConfig}={}){
+export async function createAssistant({env=process.env,client,now=()=>new Date(),planner,persistence,recall,vertexConfig,quickCapture=false}={}){
   const fixedLanguage=env.THREADLINE_REPLY_LANGUAGE||'auto';
   if(!['auto','en','zh'].includes(fixedLanguage))throw Error('Reply language must be en, zh or auto.');
   const channel=env.THREADLINE_CHAT_CHANNEL||'imessage';
@@ -114,7 +118,7 @@ export async function createAssistant({env=process.env,client,now=()=>new Date()
   const say=(s,a,b)=>pick(s.lang!=='en',a,b);
   const key=(p,step)=>'photon-personal-'+p.id+'-'+step;
   const appLocation=(kind)=>({'note':['Notes & evidence','Notes & evidence'],task:['Tasks','Tasks'],draft:['Follow-ups','Follow-ups']}[kind]?.[0]||'Overview');
-  function help(s){return say(s,'可以直接发给我：\n「我等会要见 Alex，帮我回忆一下」\n「记一下：刚和 Alex 聊完……」\n「明天提醒我联系 Alex」\n\n我会先预览，再由你回复“确认”保存。','Try: “Brief me before I meet Alex”, “Remember this: Alex asked for a demo”, or “Remind me to contact Alex tomorrow”. I preview changes before you confirm. To ask Gemini using saved context, write “Ask AI: ...”; that sends your question and retrieved source excerpts.');}
+  function help(s){if(quickCapture)return say(s,'直接发“记一下：……”就会保存原文到 Memory；普通问题不会存成笔记。要加入待办，请说“明天提醒我……”，看完预览后再确认。','Send “Remember this: …” to save the original text directly to Memory. Ordinary questions are not saved as notes. For a task, say “Remind me to … tomorrow”, then confirm the preview. Ask “Ask AI: …” to let Gemini answer from retrieved source excerpts.');return say(s,'可以直接发给我：\n「我等会要见 Alex，帮我回忆一下」\n「记一下：刚和 Alex 聊完……」\n「明天提醒我联系 Alex」\n\n我会先预览，再由你回复“确认”保存。','Try: “Brief me before I meet Alex”, “Remember this: Alex asked for a demo”, or “Remind me to contact Alex tomorrow”. I preview changes before you confirm. To ask Gemini using saved context, write “Ask AI: ...”; that sends your question and retrieved source excerpts.');}
   function preview(s,p){
     const where=p.contact?`${p.contact.name}${p.project?' / '+p.project.name:''}`:say(s,'未关联联系人','No contact attached');
     const due=p.payload?.reminder?.due_on||p.payload?.due_on;
@@ -157,6 +161,7 @@ export async function createAssistant({env=process.env,client,now=()=>new Date()
     }
     delete s.pending;s.lastSaved={kind:p.kind,id:result.note?.id||result.id,at:now().toISOString()};
     const where=p.contact?p.contact.name:say(s,'你的工作区','your workspace');
+    if(p.kind==='capture'&&p.quickCapture)return say(s,`已存到 Memory${p.contact?' · '+p.contact.name:''}。原文已保留，没有创建待办。\n在网页 Memory 可查看或删除；也可以继续问我刚记下的内容。`,`Saved to Memory${p.contact?' · '+p.contact.name:''}. Original text kept; no task was created.\nOpen Memory to inspect or forget it, or ask me about it.`);
     if(p.kind==='capture')return say(s,`已保存到 ${where} 的交流记录${result.reminder?'，并加入 '+result.reminder.due_on+' 的待办':''}。\n在电脑上的 Notes & evidence 可查看。你可以接着问：“${p.contact?.name.split(' ')[0]||'我'}最近聊了什么？”`,`Saved to ${where}${result.reminder?' with a task due '+result.reminder.due_on:''}. Open Memory on your computer, or ask what you discussed recently.`);
     if(p.kind==='task')return say(s,`已加入${result.due_on?' '+result.due_on+' ':''}待办：${result.title}。\n在电脑上的 Tasks 可查看；未设置手机推送。`,`Added${result.due_on?' for '+result.due_on:''}: ${result.title}. Find it in Tasks; no phone notification was scheduled.`);
     return say(s,`草稿已保存到 ${where} 的 Follow-ups，未向对方发送。`,`Draft saved in ${where}'s Follow-ups. Nothing was sent to the contact.`);
@@ -192,9 +197,15 @@ export async function createAssistant({env=process.env,client,now=()=>new Date()
     if(p.intent==='capture'){
       const explicit=text.match(/\b(20\d{2}-\d{2}-\d{2})\b/)?.[1];
       let occurred=/昨天|yesterday/i.test(text)?addDays(today,-1):/今天|刚|today|just (?:met|spoke|talked)/i.test(text)?today:null;
-      if(explicit&&explicit!==p.due_text){const date=parseDay(explicit,today);if(!date||date>today)return say(s,'这看起来是未来或无效的交流日期。请明确过去的交流日期；未来日期可以用作待办日期。','That conversation date is invalid or in the future. Use a past conversation date; future dates can be task due dates.');occurred=date;}
+      if(explicit&&explicit!==p.due_text){const date=parseDay(explicit,today);if(p.quickCapture){if(date&&date<=today)occurred=date;}else{if(!date||date>today)return say(s,'这看起来是未来或无效的交流日期。请明确过去的交流日期；未来日期可以用作待办日期。','That conversation date is invalid or in the future. Use a past conversation date; future dates can be task due dates.');occurred=date;}}
       const payload={body:text,title:person?pick(zh,`与 ${person.name} 的交流`,`Conversation with ${person.name}`):pick(zh,'随手记录','Quick note'),occurred_on:occurred,channel:'other',tags:channelLabel,...(person?{contact_id:person.id}:{}),...(project?{project_id:project.id}:{})};
-      const due=parseDay(p.due_text||'',today);if(p.reminder_text&&due){if(due<today)return say(s,'待办日期已经过去了。请明确一个日期，我再给你预览。','That due date is in the past. Please give a current date.');payload.reminder={title:p.reminder_text,due_on:due};}
+      const due=parseDay(p.due_text||'',today);if(!p.quickCapture&&p.reminder_text&&due){if(due<today)return say(s,'待办日期已经过去了。请明确一个日期，我再给你预览。','That due date is in the past. Please give a current date.');payload.reminder={title:p.reminder_text,due_on:due};}
+      if(p.quickCapture){
+        const staged=await stage(s,'capture',payload,{contact:person,project,generation:state.workspace.generation,extra:{id:p.quickCapture.id,quickCapture:p.quickCapture}});
+        if(s.pending?.id!==p.quickCapture.id)return staged;
+        // Persist the same staged-write guard used by confirmation flows before saving.
+        return commit(s);
+      }
       return stage(s,'capture',payload,{contact:person,project,generation:state.workspace.generation});
     }
     if(p.intent==='task'){
@@ -243,19 +254,30 @@ export async function createAssistant({env=process.env,client,now=()=>new Date()
   }
   async function handle(session,text,meta){
     disk.refresh?.();
-    text=clean(text);if(!text||text.length>4000)return '请一次发一条简短的请求。 / Please send one short request at a time.';
-    const mid=meta.messageId||randomUUID(),hash=digest(text),previous=db.receipts[mid];
+    const originalText=String(text??'');text=clean(text);if(!text||originalText.length>4000)return '请一次发一条简短的请求。 / Please send one short request at a time.';
+    const captureCommand=quickCapture?explicitCapture(text):null;
+    const mid=meta.messageId||randomUUID(),hash=digest(captureCommand?originalText:text),previous=db.receipts[mid];
     if(previous){if(previous.hash!==hash)throw Error('Message ID reused with changed text');return previous.reply;}
     const s=db.conversations[session]||={lang:'zh'};
     if(fixedLanguage!=='auto')s.lang=fixedLanguage;
     else if(zhText(text))s.lang='zh';else if(!control.test(text)&&/[a-z]{3}/i.test(text))s.lang='en';
+    if(s.pending?.quickCapture?.messageId===mid&&s.pending.quickCapture.hash!==hash)throw Error('Message ID reused with changed text');
     let reply;
     try{
-      if (recall && /^ask ai:\s*/i.test(text)) {
+      if(s.pending?.quickCapture?.messageId===mid)reply=await commit(s);
+      else if (recall && /^ask ai:\s*/i.test(text)) {
         reply = await recall(text.replace(/^ask ai:\s*/i, ''), { use_ai: true, session });
       } else if(confirm.test(text))reply=await commit(s,meta);
       else if(cancel.test(text)){delete s.pending;delete s.clarify;reply=say(s,'已取消待保存内容，现有记录没有改动。','Cancelled the pending change. Existing records are unchanged.');}
-      else if(/^(启用\s*AI\s*理解|enable AI understanding)$/i.test(text)){if(!vertex?.project&&!planner)reply=say(s,'这台电脑尚未配置 Gemini；常用记录、查询和待办仍可使用。','Gemini is not configured on this computer; ordinary notes, queries and tasks still work.');else{s.aiEnabled=true;reply=say(s,'已开启。之后仅把你发来的消息交给 Gemini 解析意图，不上传整个人脉库；保存仍需你确认。回复“关闭AI理解”可停用。','Enabled. Gemini will parse only your incoming messages, not the whole workspace. Saving still requires confirmation. Say “disable AI understanding” to stop.');}}
+      else if(quickCapture&&/^(?:what did I just (?:save|record|note|tell you)|show (?:me )?my last (?:note|memory)|我刚(?:才)?(?:记|保存|记录)了什么)[?？.!！\s]*$/i.test(text)) {
+        if(s.lastSaved?.kind==='capture') {
+          try { const source=await request('/api/notes/'+s.lastSaved.id); reply=`Your last saved note: ${source.title}\n“${short(source.body,1400)}”\nOpen Memory to see the full original.`; }
+          catch { reply='That saved note is no longer available. Open Memory to review your current sources.'; }
+        } else reply='There is no recently saved note in this chat. Send “Remember this: …” to add one.';
+      }
+      else if(quickCapture&&text.match(quickCapturePrefix)&&!captureCommand)reply=say(s,'你想记下什么？请在“记一下：”后加上内容。','What should I remember? Add the content after “Remember this:”.');
+      else if(!captureCommand&&negativeSave.test(text)){delete s.pending;delete s.clarify;reply=say(s,'不会保存。你可以直接问我现有记录。','I will not save anything. You can ask about existing records.');}
+      else if(/^(启用\s*AI\s*理解|enable AI understanding)$/i.test(text)){if(!vertex?.project&&!planner)reply=say(s,'这台电脑尚未配置 Gemini；常用记录、查询和待办仍可使用。','Gemini is not configured on this computer; ordinary notes, queries and tasks still work.');else{s.aiEnabled=true;reply=say(s,'已开启。之后仅把你发来的消息交给 Gemini 解析意图，不上传整个人脉库；保存仍需你确认。回复“关闭AI理解”可停用。','Enabled. Gemini will parse only your incoming messages, not the whole workspace. '+(quickCapture?'Explicit “Remember this:” notes save directly; tasks still require confirmation.':'Saving still requires confirmation.')+' Say “disable AI understanding” to stop.');}}
       else if(/^(关闭\s*AI\s*理解|disable AI understanding)$/i.test(text)){s.aiEnabled=false;reply=say(s,'已关闭 AI 理解，继续使用本地常用操作。','AI understanding is off; local commands remain available.');}
       else if(s.pending&&/^(改成|改为|change to)\s*[:：]?/i.test(text)){
         const changed=text.replace(/^(改成|改为|change to)\s*[:：]?/i,'').trim();const old=s.pending;
@@ -278,14 +300,15 @@ export async function createAssistant({env=process.env,client,now=()=>new Date()
         }
       }else{
         const state=await request('/api/state'),today=localDay(now(),state.workspace.timezone||'America/Los_Angeles');
-        const contacts=state.contacts;let p=await plan(text,s,today),raw=text;
-        if(s.clarify){const options=contacts.filter(c=>s.clarify.ids.includes(c.id)),matches=contactMatches(text,options);if(matches.length===1){p=s.clarify.plan;raw=s.clarify.text;delete s.clarify;reply=await execute(s,p,raw,state,matches[0]);}}
+        const contacts=state.contacts;let p=captureCommand?{...parseLocalIntent(text),intent:'capture',quickCapture:{id:digest('memory-capture:'+session+':'+mid),messageId:mid,hash}}:await plan(text,s,today),raw=captureCommand?originalText:text;
+        if(s.clarify?.expiresAt&&s.clarify.expiresAt<now().getTime())delete s.clarify;
+        if(s.clarify){const options=contacts.filter(c=>s.clarify.ids.includes(c.id)),exact=options.filter(c=>[c.name,c.company].filter(Boolean).some(value=>clean(value).toLocaleLowerCase()===text.toLocaleLowerCase())),matches=exact.length?exact:s.clarify.plan.quickCapture?[]:contactMatches(text,options);if(matches.length===1){p=s.clarify.plan;raw=s.clarify.text;delete s.clarify;reply=await execute(s,p,raw,state,matches[0]);}}
         if(reply===undefined){const hadPending=!!s.pending;delete s.pending;delete s.clarify;
-          if(/(?:不要|别|不想|don't|do not).*(?:保存|记|写|创建|save|record|create)/i.test(text)){reply=say(s,'不会保存。你可以直接问我现有记录。','I will not save anything. You can ask about existing records.');}
+          if(!captureCommand&&negativeSave.test(text)){reply=say(s,'不会保存。你可以直接问我现有记录。','I will not save anything. You can ask about existing records.');}
           else if(/^ACCEPT\s+[A-Z0-9]+$/i.test(text)){reply=say(s,'旧确认码已经不用了。现在直接告诉我想查谁、记什么，预览后回复“确认”即可。','Old confirmation codes are no longer used. Tell me what to look up or save, then confirm the preview.');}
           else{
             let matches=contactMatches(p.contact||text,contacts);if(!matches.length&&s.contactId&&now().getTime()-s.contactAt<30*60000&&(/他|她|刚才|that person|him|her/i.test(text)||['brief','draft','recent'].includes(p.intent)))matches=contacts.filter(c=>c.id===s.contactId);
-            if(matches.length>1){s.clarify={plan:p,text:raw,ids:matches.map(c=>c.id)};reply=say(s,'你指哪一位？\n','Which person?\n')+matches.map(c=>`${c.name} · ${c.company||''}`).join('\n');}
+            if(matches.length>1){s.clarify={plan:p,text:raw,ids:matches.map(c=>c.id),expiresAt:now().getTime()+15*60000};reply=say(s,'你指哪一位？\n','Which person?\n')+matches.map(c=>`${c.name} · ${c.company||''}`).join('\n');}
             else if(p.intent==='unknown')reply=recall ? await recall(raw,{use_ai:false,session}) : help(s);
             else reply=await execute(s,p,raw,state,matches[0]||null);
           }

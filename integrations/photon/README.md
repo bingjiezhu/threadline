@@ -5,8 +5,8 @@ This post-submission improvement connects Photon to the same personal workspace 
 ## Useful conversations
 
 - `Brief me before I meet Alex.` — brief from real records and commitments.
-- `Remember this: I just spoke with Alex. I promised to send the demo outline by Friday.` — preview the exact note and dated task.
-- `Confirm` — save the displayed change; then ask `What did I last discuss with Alex?` to retrieve it.
+- `Remember this: I just spoke with Alex. I promised to send the demo outline by Friday.` — save the exact note directly to Memory; no task is created.
+- `Remind me to send Alex the outline tomorrow` — preview a task, then reply `Confirm`; ask `What did I last discuss with Alex?` to retrieve it.
 - `Who should I follow up with?` — explain reviewed requirement/progress matches.
 - `What are my promises this week?` — open tasks ordered by due date.
 - `Draft a follow-up for Alex.` — preview a source-backed draft, saved only on confirmation, never sent to Alex.

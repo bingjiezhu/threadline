@@ -1,0 +1,41 @@
+import assert from 'node:assert/strict';
+import { apiTest } from './helpers/http.js';
+
+const input = {provider:'codex', files:[{path:'memories/MEMORY.md',content:'# User memory\nI prefer concise weekly summaries.\n'}]};
+apiTest('agent import preview does not persist file content or cached preview, and confirmed source is inspectable', async({app,client})=>{
+  const c=client(); const user=await c.register(); const w=user.user.workspace_id;
+  const p=await c.call('/api/memory/imports/preview','POST',input);
+  assert.equal(p.status,200,JSON.stringify(p.data));
+  assert.equal(p.data.files[0].status,'new');
+  assert.equal(app.domain.state(w).notes.length,0);
+  assert.equal(app.store.db.prepare('SELECT COUNT(*) n FROM idempotency WHERE workspace_id=?').get(w).n,0);
+  const selected=p.data.files.map(({path,hash})=>({path,hash}));
+  const result=await c.call('/api/memory/imports/commit','POST',{...input,preview_hash:p.data.preview_hash,selected,confirm:true});
+  assert.equal(result.status,200,JSON.stringify(result.data));
+  assert.equal(result.data.imported.length,1);
+  const id=result.data.imported[0].source_id;
+  const source=(await c.call('/api/memory/sources/'+id)).data;
+  assert.equal(source.body,input.files[0].content);
+  assert.equal(source.origin,'import');
+  assert.equal(source.imports[0].provider,'codex');
+  assert.equal(source.occurred_on,null);
+  assert.equal((await c.call('/api/memory')).data.sources[0].imports[0].path,'memories/MEMORY.md');
+  assert.equal(app.store.db.prepare('SELECT COUNT(*) n FROM memory_agent_runs').get().n,0);
+  const again=await c.call('/api/memory/imports/preview','POST',input);
+  assert.equal(again.data.files[0].status,'duplicate');
+  await c.call('/api/memory/sources/'+id+'/forget','POST',{version:source.version});
+  assert.equal(Object.keys(app.memoryImport.sources(w)).length,0);
+});
+apiTest('agent import routes enforce authentication, CSRF and owner-local duplicate lookup',async({client})=>{
+  const anon=client(),a=client(),b=client();
+  assert.equal((await anon.call('/api/memory/imports/preview','POST',input)).status,401);
+  await a.register('import-a@example.com'); await b.register('import-b@example.com');
+  assert.equal((await a.call('/api/memory/imports/preview','POST',input,{'x-csrf-token':'wrong'})).status,403);
+  const preview=(await a.call('/api/memory/imports/preview','POST',input)).data;
+  const result=await a.call('/api/memory/imports/commit','POST',{...input,preview_hash:preview.preview_hash,selected:preview.files.map(({path,hash})=>({path,hash})),confirm:true});
+  assert.equal(result.status,200);
+  assert.equal((await b.call('/api/memory/sources/'+result.data.imported[0].source_id)).status,404);
+  const second=(await b.call('/api/memory/imports/preview','POST',input)).data;
+  assert.equal(second.files[0].status,'new');
+  assert.equal(second.files[0].source_id,undefined);
+});

@@ -9,13 +9,13 @@ In the owner's already connected ASI chat, select **Threadline Personal Demo** a
 
 - “Brief me before I meet Alex. What should I remember?”
 - “Remember this: I just spoke with Alex. He wants a demo next week, and I promised to send him the overview by Friday.”
-- Read the note/task preview, then reply “Confirm”.
+- Explicit “Remember this:” notes save directly. For a task, ask “Remind me to send Alex the overview tomorrow”, then confirm its preview.
 - “What did I last discuss with Alex?”
 - “What is the next step for the Northstar project?”
 - “Who should I follow up with, and why?”
 - “Draft a short follow-up to Alex about the private-deployment update.”
 
-English replies, one useful next step, no random confirmation codes. Notes, project context, drafts and date-based tasks come from the **same application workspace shown in the browser**. Original source dates and wording are preserved. “Change to …” edits a preview; “Cancel” discards it. Nothing is saved until you confirm the displayed change. Drafts are not sent to contacts, and tasks do not schedule phone notifications.
+English replies, one useful next step, no random confirmation codes. Notes, project context, drafts and date-based tasks come from the **same application workspace shown in the browser**. Original source dates and wording are preserved. “Change to …” edits a preview; “Cancel” discards it. Explicit memory commands save their original text immediately. Other writes, including tasks and drafts, require confirmation of the displayed change. Drafts are not sent to contacts, and tasks do not schedule phone notifications.
 
 The current workspace contains fictional demonstration records. This connection is restricted to one verified sender/session pair; unknown chats cannot read or change it. It is not a general account-linking service for arbitrary ASI users.
 

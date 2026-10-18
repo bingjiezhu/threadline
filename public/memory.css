@@ -2,3 +2,5 @@
 
 /* Keep the stored content above the fold; the library is the primary product. */
 .mem-summary{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 22px;background:#edf5ef;border:1px solid #dae7df;border-radius:13px;margin-bottom:22px}.mem-summary>strong{font-size:14px}.mem-summary .mem-hero-stats{padding:0;gap:30px}.mem-summary .mem-hero-stats strong{color:#183f3a;font-size:25px}.mem-summary .mem-hero-stats span{color:#637d76}@media(max-width:650px){.mem-summary{display:block}.mem-summary .mem-hero-stats{margin-top:12px;gap:12px}}
+
+.mem-import-source{margin-bottom:20px}.mem-import-source-row{padding:10px 0;overflow-wrap:anywhere}.mem-library-controls select{max-width:170px}.mem-library-controls{flex-wrap:wrap}

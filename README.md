@@ -24,6 +24,20 @@ Open **http://localhost:4173/#memory** and create an account. New accounts start
 
 Task proposals require a separate confirmation. Photon and ASI:One are optional message channels to this same backend; they do not have separate copies of your memory.
 
+## Bring in existing memory
+
+Choose **Memory → Import agent memory**, select **Codex** or **Claude**, then choose Markdown/text files or a memory folder. Preview the originals and select what to import. Identical content is reused; changed files become new snapshots. Large files are preserved as linked parts. You can filter the memory library by Codex, Claude, iMessage, ASI:One or web notes.
+
+## Capture from iMessage or ASI:One
+
+In your connected private chat, send:
+
+> Remember this: I just spoke with Alex. He prefers a short agenda before a meeting.
+
+This saves the original message directly to Memory. Questions do not become notes. A separate request such as **Remind me to send Alex the agenda tomorrow** still previews the task and waits for **Confirm**. No inferred task or external message is created just because you saved a note.
+
+Overview, Contacts, Projects, Notes & evidence, Follow-ups, Tasks, Capture, Find people and This week remain available alongside Memory and Personal agent.
+
 ## Optional Gemini
 
 Set operator-held Vertex configuration in `.env`, authenticate Application Default Credentials, and restart:

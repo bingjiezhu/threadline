@@ -75,7 +75,7 @@ apiTest('legacy note edits invalidate organized memory, agent history and cached
 apiTest('thin channels share actual website notes while each owner and channel keeps separate previews', async ({ client }) => {
     const a = client(), b = client(); await a.register('first@example.com'); await b.register('second@example.com');
     await personProject(a);
-    const capture = message('Remember this: I just spoke with Alex. He prefers the orchid report.');
+    const capture = message('I just spoke with Alex. He prefers the orchid report.');
     assert.match(await send(a, capture), /Ready to save/);
     assert.match(await send(b, message('Confirm')), /nothing pending/i);
     assert.match(await send(a, message('Confirm', { channel: 'asi-one' })), /nothing pending/i);
@@ -93,7 +93,7 @@ apiTest('thin channels share actual website notes while each owner and channel k
 apiTest('a project change after the preview blocks outdated channel capture context', async ({ client }) => {
     const c = client(); await c.register();
     const { project } = await personProject(c);
-    assert.match(await send(c, message('Remember this: I just spoke with Alex. He asked for a pilot.')), /Northstar/);
+    assert.match(await send(c, message('I just spoke with Alex. He asked for a pilot.')), /Northstar/);
     const other = (await c.call('/api/contacts', 'POST', { name: 'Jamie Stone' })).data;
     assert.equal((await c.call(`/api/projects/${project.id}`, 'PATCH', { version: project.version, contact_id: other.id })).status, 200);
     const reply = await send(c, message('Confirm'));
@@ -106,7 +106,7 @@ test('channel previews and confirmed notes survive an actual HTTP server and SQL
     let context = await setup({ dbPath });
     try {
         const c = context.client(); await c.register('restart@example.com'); await personProject(c);
-        assert.match(await send(c, message('Remember this: I just spoke with Alex. He prefers a quiet meeting.')), /Ready to save/);
+        assert.match(await send(c, message('I just spoke with Alex. He prefers a quiet meeting.')), /Ready to save/);
         await context.app.close();
         context = await setup({ dbPath });
         const reopened = context.client();
@@ -147,4 +147,20 @@ test('forget during a pending Gemini request cannot resurrect cached channel rep
         const persisted = context.app.store.db.prepare('SELECT state_json FROM memory_conversation_state').all();
         assert.doesNotMatch(JSON.stringify(persisted), /purple trellis/);
     } finally { finishModel(); await pending?.catch(() => {}); await context.app.close(); }
+});
+
+apiTest('connected iMessage saves an explicit note in one step and shares it with the website without a task', async ({ client }) => {
+    const c=client(); await c.register(); await personProject(c);
+    const request=message('Remember this: I just spoke with Alex. I promised to send the agenda by Friday.');
+    const saved=await send(c,request);
+    assert.match(saved,/Saved to Memory/);
+    assert.doesNotMatch(saved,/Reply “confirm”/);
+    assert.match(await send(c,request),/Saved to Memory/);
+    const memory=(await c.call('/api/memory')).data;
+    assert.equal(memory.sources.length,1);
+    assert.equal(memory.sources[0].origin,'photon');
+    assert.equal((await c.call('/api/memory/sources/'+memory.sources[0].id)).data.body,request.message);
+    assert.equal((await c.call('/api/state')).data.tasks.length,0);
+    assert.match(await send(c,message('Confirm')),/nothing pending/i);
+    assert.match(await send(c,message('What did I just save?')),/I promised to send the agenda by Friday/);
 });

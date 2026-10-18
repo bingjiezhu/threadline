@@ -51,7 +51,7 @@ export function createConversationService(store, domain, agent, dispatch, config
         if(method!=='GET'&&requestKey) db.prepare('INSERT INTO idempotency VALUES(?,?,?,?,?,?)').run(w,requestKey,fingerprint,JSON.stringify(result),domain.workspace(w).generation,now());
         return result;
       }};
-      return createAssistant({client,persistence,env:{THREADLINE_REPLY_LANGUAGE:'en',THREADLINE_CHAT_CHANNEL:channel},
+      return createAssistant({client,persistence,quickCapture:true,env:{THREADLINE_REPLY_LANGUAGE:'en',THREADLINE_CHAT_CHANNEL:channel},
         vertexConfig:config.vertexProject?{project:config.vertexProject,model:config.openaiModel}:null,
         recall:async(question,{use_ai,session:chatSession})=>{
           const old=db.prepare('SELECT thread_id FROM memory_channel_threads WHERE workspace_id=? AND channel=? AND session=?').get(w,channel,chatSession);
