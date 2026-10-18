@@ -64,4 +64,4 @@ An optional official ACP/Mailbox adapter executes the same app’s reviewed pers
 
 See [adapter setup and limits](integrations/agentverse/README.md). The live demo agent is [Threadline Personal Demo](https://agentverse.ai/agents/details/agent1qg9nvtv8gsj0zah5qe29pzu6f3dqr5k5mcxj56gqezvx63qwxk5mknxkgsr/profile); availability depends on its local process remaining online. This does not implement ASI access to a user’s real private account.
 
-Optional [Photon iMessage adapter](integrations/photon/README.md): one real source-review response was delivered through Photon Beta; task writes remain locally tested, not live-verified over that channel.
+Optional [Photon personal assistant](integrations/photon/README.md): this local post-submission branch connects iMessage to the same workspace, with conversation capture, project briefs, due-dated tasks and editable drafts. Changes use natural-language previews and explicit confirmation. The competition snapshot remains unchanged; its earlier source-review delivery evidence is separate from testing this newer workflow.
