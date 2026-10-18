@@ -60,8 +60,8 @@ Threadline builds on an existing Apache-2.0 application. This final consolidatio
 
 ## Optional ASI:One fictional demo
 
-An optional official ACP/Mailbox adapter executes the same app’s reviewed personal follow-up through ASI:One: dated source quotes, explicit acceptance, chosen-quote draft permission, edited draft and a separately confirmed app task. One actual ASI chat completed this flow on disposable fictional records. No customer was contacted and no private user database was exposed.
+The local post-submission personal agent now reuses the same conversation implementation as Photon and connects to the existing web workspace. It answers in English, previews notes and dated tasks, saves only after confirmation, and can recall the newly saved conversation. The current demo is restricted to its verified owner/chat pair.
 
-See [adapter setup and limits](integrations/agentverse/README.md). The live demo agent is [Threadline Personal Demo](https://agentverse.ai/agents/details/agent1qg9nvtv8gsj0zah5qe29pzu6f3dqr5k5mcxj56gqezvx63qwxk5mknxkgsr/profile); availability depends on its local process remaining online. This does not implement ASI access to a user’s real private account.
+See [personal-agent setup and examples](integrations/agentverse/PERSONAL_ASSISTANT.md). The original competition command-flow adapter remains documented [separately](integrations/agentverse/README.md). The live identity is still [Threadline Personal Demo](https://agentverse.ai/agents/details/agent1qg9nvtv8gsj0zah5qe29pzu6f3dqr5k5mcxj56gqezvx63qwxk5mknxkgsr/profile); availability depends on its local process remaining online. This is not general private-account linking for arbitrary ASI users.
 
 Optional [Photon personal assistant](integrations/photon/README.md): this local post-submission branch connects iMessage to the same workspace, with conversation capture, project briefs, due-dated tasks and editable drafts. Changes use natural-language previews and explicit confirmation. The competition snapshot remains unchanged; its earlier source-review delivery evidence is separate from testing this newer workflow.

@@ -1,5 +1,7 @@
 # Threadline fictional personal-workflow ACP bridge
 
+> Historical competition adapter. For the newer local personal agent connected to the current web workspace, use [PERSONAL_ASSISTANT.md](PERSONAL_ASSISTANT.md) and `personal-agent.py`. The legacy procedure below starts a separate disposable command-flow fixture.
+
 **Agent name:** Threadline Personal Demo  
 **Agent address:** `agent1qg9nvtv8gsj0zah5qe29pzu6f3dqr5k5mcxj56gqezvx63qwxk5mknxkgsr`
 

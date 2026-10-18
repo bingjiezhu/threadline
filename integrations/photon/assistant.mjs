@@ -99,6 +99,9 @@ const topicName=(t,zh)=>zh?({'private deployment':'私有部署','private-deploy
 export async function createAssistant({env=process.env,client,now=()=>new Date(),planner}={}){
   const fixedLanguage=env.THREADLINE_REPLY_LANGUAGE||'auto';
   if(!['auto','en','zh'].includes(fixedLanguage))throw Error('Reply language must be en, zh or auto.');
+  const channel=env.THREADLINE_CHAT_CHANNEL||'imessage';
+  if(!['imessage','asi-one'].includes(channel))throw Error('Unsupported personal assistant channel.');
+  const channelLabel=channel==='asi-one'?'ASI:One':'iMessage';
   const statePath=resolve(env.THREADLINE_ASSISTANT_STATE_FILE||fileURLToPath(new URL('.runtime/assistant-state.json',import.meta.url)));
   const disk=safeFile(statePath,{schema:1,workspaceId:null,conversations:{},receipts:{},aiUsage:{}}),db=disk.value;
   if(db.schema!==1)throw Error('Unsupported assistant state.');
@@ -188,14 +191,14 @@ export async function createAssistant({env=process.env,client,now=()=>new Date()
       const explicit=text.match(/\b(20\d{2}-\d{2}-\d{2})\b/)?.[1];
       let occurred=/昨天|yesterday/i.test(text)?addDays(today,-1):/今天|刚|today|just (?:met|spoke|talked)/i.test(text)?today:null;
       if(explicit&&explicit!==p.due_text){const date=parseDay(explicit,today);if(!date||date>today)return say(s,'这看起来是未来或无效的交流日期。请明确过去的交流日期；未来日期可以用作待办日期。','That conversation date is invalid or in the future. Use a past conversation date; future dates can be task due dates.');occurred=date;}
-      const payload={body:text,title:person?pick(zh,`与 ${person.name} 的交流`,`Conversation with ${person.name}`):pick(zh,'随手记录','Quick note'),occurred_on:occurred,channel:'other',tags:'iMessage',...(person?{contact_id:person.id}:{}),...(project?{project_id:project.id}:{})};
+      const payload={body:text,title:person?pick(zh,`与 ${person.name} 的交流`,`Conversation with ${person.name}`):pick(zh,'随手记录','Quick note'),occurred_on:occurred,channel:'other',tags:channelLabel,...(person?{contact_id:person.id}:{}),...(project?{project_id:project.id}:{})};
       const due=parseDay(p.due_text||'',today);if(p.reminder_text&&due){if(due<today)return say(s,'待办日期已经过去了。请明确一个日期，我再给你预览。','That due date is in the past. Please give a current date.');payload.reminder={title:p.reminder_text,due_on:due};}
       return stage(s,'capture',payload,{contact:person,project,generation:state.workspace.generation});
     }
     if(p.intent==='task'){
       const due=parseDay(p.due_text||text,today);if(/下周|next week|下个月|next month/i.test(text)&&!due)return say(s,'想放在具体哪一天？例如“下周五提醒我联系 Alex”。','Which day? For example, “Remind me to contact Alex next Friday”.');
       if(due&&due<today)return say(s,'这个待办日期已经过去了，请给我一个新的日期。','That due date is in the past. Please give a new date.');
-      const timeText=text.match(timeWords)?.[0];const payload={title:p.task_title||short(text,180),due_on:due,...(person?{contact_id:person.id}:{}),...(project?{project_id:project.id}:{}),notes:timeText?`Original time request: ${timeText}. Recorded only; no timed notification.`:'Saved from the owner’s iMessage request.'};
+      const timeText=text.match(timeWords)?.[0];const payload={title:p.task_title||short(text,180),due_on:due,...(person?{contact_id:person.id}:{}),...(project?{project_id:project.id}:{}),notes:timeText?`Original time request: ${timeText}. Recorded only; no timed notification.`:`Saved from the owner’s ${channelLabel} request.`};
       return stage(s,'task',payload,{contact:person,project,generation:state.workspace.generation,extra:{timeText}});
     }
     if(p.intent==='search'){
@@ -230,7 +233,7 @@ export async function createAssistant({env=process.env,client,now=()=>new Date()
     let answer=`${person.name}${person.company?' · '+person.company:''}\n`;
     if(r?.evidence?.length===2){const req=r.evidence.find(e=>e.kind==='requirement'),cap=r.evidence.find(e=>e.kind==='capability');
       if(/依据|原文|证据|source|quote|为什么|why/i.test(text))answer+=pick(zh,`有一个具体理由：之前的${topicName(req.topic,true)}要求，现在有相关进展。\n需求（${req.occurred_on}）：“${short(req.quote,90)}”\n进展（${cap.occurred_on}）：“${short(cap.quote,90)}”\n先问现在是否仍需要。`,`A concrete reason to reconnect:\nThen (${req.occurred_on}): “${short(req.quote,90)}”\nNow (${cap.occurred_on}): “${short(cap.quote,90)}”\nAsk whether the need is still current.`);
-      else answer+=pick(zh,`1. 上次关注${topicName(req.topic,true)}，现在已有相关进展（${cap.occurred_on}）。\n2. ${recent?.channel==='other'&&recent?.tags?.includes('iMessage')?'你最近记下：“'+short(recent.quote||recent.excerpt,95)+'”':'当前需求、负责人和预算仍要确认。'}\n3. ${task?'你还记着：'+task.title+'。':'这次先问对方希望怎样推进下一步。'}`,`1. A past ${topicName(req.topic,false)} requirement now has relevant progress (${cap.occurred_on}).\n2. ${recent?.channel==='other'&&recent?.tags?.includes('iMessage')?'Your latest note: “'+short(recent.quote||recent.excerpt,95)+'”':'Current need, owner and budget still need confirmation.'}\n3. ${task?'Your open commitment: '+task.title+'.':'Ask what the next useful step would be.'}`);
+      else answer+=pick(zh,`1. 上次关注${topicName(req.topic,true)}，现在已有相关进展（${cap.occurred_on}）。\n2. ${recent?.channel==='other'&&/iMessage|ASI:One/.test(recent?.tags||'')?'你最近记下：“'+short(recent.quote||recent.excerpt,95)+'”':'当前需求、负责人和预算仍要确认。'}\n3. ${task?'你还记着：'+task.title+'。':'这次先问对方希望怎样推进下一步。'}`,`1. A past ${topicName(req.topic,false)} requirement now has relevant progress (${cap.occurred_on}).\n2. ${recent?.channel==='other'&&/iMessage|ASI:One/.test(recent?.tags||'')?'Your latest note: “'+short(recent.quote||recent.excerpt,95)+'”':'Current need, owner and budget still need confirmation.'}\n3. ${task?'Your open commitment: '+task.title+'.':'Ask what the next useful step would be.'}`);
     }
     else answer+=recent?pick(zh,`最近记录：“${short(recent.quote||recent.body||recent.excerpt,170)}”`,`Latest note: “${short(recent.quote||recent.body||recent.excerpt,170)}”`):pick(zh,'还没有交流记录。','No conversation recorded yet.');
     if(task&&(!r?.evidence?.length||/依据|原文|证据|source|quote|为什么|why/i.test(text)))answer+=pick(zh,`\n你还有一件待办：${task.title}。`,`\nYour open commitment: ${task.title}.`);

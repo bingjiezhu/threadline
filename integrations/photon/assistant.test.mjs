@@ -406,3 +406,13 @@ test('configured English replies work with Chinese requests and the complete Eng
   const recall=await f.call('What did I last discuss with Alex?');assert.ok(recall.includes(raw));
   assert.match(await f.call('What is the next step for the Northstar project?'),/Next:/);
 });
+
+test('ASI reuses the personal workflow but preserves ASI source metadata instead of calling it iMessage',async t=>{
+  const f=await fixture(t);await f.start({env:{...f.env,THREADLINE_REPLY_LANGUAGE:'en',THREADLINE_CHAT_CHANNEL:'asi-one'}});
+  const raw='Remember this: I just spoke with Alex about the design-team walkthrough. I promised to send the agenda by Friday.';
+  const before=await f.state();const preview=await f.call(raw);assert.match(preview,/Ready to save/);assert.match(preview,/2026-10-23/);
+  await f.call('Confirm');const after=await f.state(),note=after.notes.find(n=>!before.notes.some(b=>b.id===n.id));
+  const detail=await f.owner.api('/api/notes/'+note.id);assert.equal(detail.body,raw);
+  const brief=await f.owner.api('/api/contacts/'+note.contact_id+'/brief');const entry=brief.conversations.find(n=>n.id===note.id);assert.equal(entry.tags,'ASI:One');assert.equal(entry.channel,'other');
+  assert.ok((await f.call('Brief me before I meet Alex.')).includes('design-team walkthrough'));
+});
