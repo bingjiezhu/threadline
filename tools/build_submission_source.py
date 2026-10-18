@@ -16,7 +16,7 @@ def main():
   if any(part in banned for part in rel.parts)or p.name=='.DS_Store'or p.suffix.lower()in excluded or p.name in {'SOURCE_MANIFEST.json','SOURCE_ARCHIVE_RECEIPT.json','LOCAL_AGENT_INFO.json','LOCAL_ACCEPTANCE.json','PROGRESS.json','ASI_ACCEPTANCE.json','REGISTRATION_FIRST_FAILURE.json'}:continue
   if p.name.startswith('.env')and p.name!='.env.example':continue
   data=p.read_bytes()
-  if re.search(rb'sk-(?:proj-)?[A-Za-z0-9_-]{35,}|AIza[0-9A-Za-z_-]{30,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|ya29\.[A-Za-z0-9_-]{30,}',data):raise RuntimeError('Possible secret format in '+str(rel))
+  if re.search(rb'sk-(?:proj-)?[A-Za-z0-9_-]{35,}|AIza[0-9A-Za-z_-]{30,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|ya29\.[A-Za-z0-9_-]{30,}|pho_(?:sk|ask)_[A-Za-z0-9_-]{16,}',data):raise RuntimeError('Possible secret format in '+str(rel))
   payload[rel.as_posix()]=data
  manifest={'schema_version':1,'project':'Threadline','application_version':'1.3.2','edition':'Personal relationship workspace merged release','authority':'Threadline_Final is the canonical editable tree','files':[{'path':n,'bytes':len(d),'sha256':sha(d)}for n,d in payload.items()],'excluded':['runtime data','credentials','media','fonts','dependency caches','release evidence']}
  mb=(json.dumps(manifest,indent=2)+'\n').encode()
