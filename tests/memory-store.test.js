@@ -60,9 +60,9 @@ checked('new workspaces have no fabricated memories, links or seeded entities', 
 
 checked('ingest uses canonical note limits, duplicate checks, event dates and records channel origin', ctx => {
     const { M, w, D } = ctx;
-    const { n } = fixture(ctx, { origin: 'photon' });
+    const { n } = fixture(ctx, { origin: 'web' });
     assert.equal(D.noteDetail(w, n.id).body, n.body);
-    assert.equal(M.getSource(w, n.id).origin, 'photon');
+    assert.equal(M.getSource(w, n.id).origin, 'web');
     assert.throws(() => M.ingest(w, { title: n.title, body: n.body, contact_id: n.contact_id, project_id: n.project_id }), e => e.code === 'duplicate_note');
     assert.throws(() => M.ingest(w, { title: 'Future source', body: 'Future is not a past memory.', occurred_on: '2999-01-01' }), /past or current/);
     assert.throws(() => M.ingest(w, { title: 'Invented channel', body: 'Channel test.', origin: 'implicit-sync' }), /origin/);
@@ -257,14 +257,14 @@ test('memory records, confirmations, source origin and history survive a real SQ
     const dir = mkdtempSync(join(tmpdir(), 'threadline-memory-')), path = join(dir, 'memory.sqlite');
     let ctx = setup(path);
     try {
-        const { n } = fixture(ctx, { origin: 'asi' });
+        const { n } = fixture(ctx, { origin: 'web' });
         let memory = proposal(ctx, n);
         memory = ctx.M.review(ctx.w, memory.id, { version: memory.version, decision: 'confirm' });
         const w = ctx.w;
         ctx.store.close();
         const store = openStore(path), D = createDomain(store), M = createMemoryStore(store, D);
         ctx = { store };
-        assert.equal(M.getSource(w, n.id).origin, 'asi');
+        assert.equal(M.getSource(w, n.id).origin, 'web');
         assert.equal(M.retrieve(w, { query: 'communication' }).hits[0].items[0].id, memory.id);
         assert.equal(M.state(w).stats.confirmed, 1);
         assert.equal(store.db.prepare('SELECT count(*) AS count FROM memory_history WHERE workspace_id=?').get(w).count, 3);
@@ -278,4 +278,11 @@ checked('independent sentences in one source are not presented as changed memory
         {kind:'fact',text:'I promised to send the overview by Friday.',quote:'I promised to send the overview by Friday.',topic:'source-note'}
     ] }, {provider:'local',model:'',run_id:'local-sentence-review'});
     assert.equal(M.state(w).stats.conflict_count, 0);
+});
+
+checked('retired messaging origins cannot be used to ingest new sources', ctx => {
+    const before = ctx.M.state(ctx.w).sources.length;
+    for (const origin of ['photon', 'asi'])
+        assert.throws(() => ctx.M.ingest(ctx.w, { title: 'Rejected external source', body: 'This must not be stored.', origin }), e => e.code === 'invalid_input');
+    assert.equal(ctx.M.state(ctx.w).sources.length, before);
 });

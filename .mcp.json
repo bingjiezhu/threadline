@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "threadline": {
-      "command": "node",
-      "args": ["${PLUGIN_ROOT}/scripts/threadline-mcp.mjs"],
-      "cwd": "${PLUGIN_ROOT}"
-    }
-  }
-}

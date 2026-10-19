@@ -1,2 +1,0 @@
-We completed a private deployment in a customer-controlled environment.
-This is one delivery example; customer fit and budget still need confirmation.

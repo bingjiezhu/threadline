@@ -20,7 +20,7 @@ for (const f of walk(root)) {
         english++;
         // These exact implementation/test files intentionally accept multilingual input.
         // Public UI, documentation and other release content retain the English check.
-        const multilingualInputFiles = new Set(['src/personal-conversation.js','integrations/photon/assistant.test.mjs','integrations/photon/bridge.test.mjs','integrations/agentverse/test_personal_transport.py','tests/memory-quick-capture.test.js','tests/memory-import.test.js','tests/markdown-backup.test.js','src/memory-query.js','tests/memory-query-retrieval.test.js']);
+        const multilingualInputFiles = new Set(['tests/memory-import.test.js','tests/markdown-backup.test.js','src/memory-query.js','tests/memory-query-retrieval.test.js']);
         if (!multilingualInputFiles.has(rel) && /[\u3400-\u4dbf\u4e00-\u9fff]/u.test(s))
             errors.push(`${rel}: unexpected CJK text; release materials must be English.`);
         if (/sk-[A-Za-z0-9_-]{30,}/.test(s))
@@ -36,7 +36,14 @@ for (const f of walk(root)) {
         }
     }
 }
-const required = ['README.md', 'AGENTS.md', 'LICENSE', 'server.js', 'public/index.html', 'public/app.js', 'public/styles.css', 'public/guide.html', 'public/welcome.html', 'docs/USER_GUIDE.md', 'docs/API.md', 'docs/OPERATIONS.md', 'docs/VERIFICATION.md', 'docs/MARKET_RESEARCH.md', 'docs/GO_TO_MARKET.md', 'docs/PITCH.md', 'tests/browser/README.md', 'examples/fictional-workspace.json', 'src/warm-schema.js', 'src/warm-start.js', 'src/chat-connectors.js', 'public/warm-ui.js', 'public/warm.css', 'docs/WARM_START.md', 'docs/CHAT_INTEGRATIONS.md', 'docs/competition/READ_FIRST.md', 'integrations/slack/manifest.json', 'integrations/discord/commands.json', 'public/first-task.css', 'src/clarity-fixture.js', 'scripts/demo-clear.js', 'public/guide-clarity.html', 'PROVENANCE.md', 'submission/README_FIRST.md', 'submission/PROJECT_STORY.md', 'public/guide-judges.html', 'scripts/demo-judge.js', 'docs/competition/JUDGE_STORY_EN.md', 'docs/competition/JUDGE_QA_EN.md'];
+const required = [
+    'README.md', 'AGENTS.md', 'LICENSE', 'server.js', '.env.example',
+    'public/index.html', 'public/app.js', 'public/styles.css', 'public/memory-ui.js', 'public/memory.css', 'public/relationship-ui.js',
+    'src/auth.js', 'src/store.js', 'src/domain.js', 'src/markdown-vault.js', 'src/memory-store.js', 'src/memory-import.js', 'src/memory-agent.js', 'src/memory-query.js',
+    'scripts/start.js', 'scripts/backup.js', 'scripts/recover.js',
+    'docs/API.md', 'docs/OPERATIONS.md', 'docs/VERIFICATION.md',
+    'tests/channel-disabled.test.js', 'tests/markdown-vault.test.js', 'tests/memory-import.test.js'
+];
 for (const f of required)
     if (!existsSync(join(root, f)))
         errors.push('Missing ' + f);
@@ -44,11 +51,6 @@ const js = readFileSync(join(root, 'public/app.js'), 'utf8');
 for (const needle of ['localApi(', 'fullState', 'preState', 'api/demo/reset', 'ensureCanonicalProposal', 'insertCanonicalAction'])
     if (js.includes(needle))
         errors.push('Staged execution marker: ' + needle);
-const archive = JSON.parse(readFileSync(join(root, 'examples/fictional-workspace.json'), 'utf8'));
-if (archive.format !== 'threadline-export' || archive.version !== 1)
-    errors.push('Invalid optional example export.');
-if (readFileSync(join(root, 'public/sample-workspace.json'), 'utf8') !== readFileSync(join(root, 'examples/fictional-workspace.json'), 'utf8'))
-    errors.push('Optional example copies differ.');
 const r = { status: errors.length ? 'failed' : 'passed', javascript_syntax_files: scripts, english_text_files: english, json_files: json, errors, scope: 'Syntax, English-language text scan, JSON, required artifacts, staged-path absence. Functional/security/browser checks are separate.' };
 console.log(JSON.stringify(r, null, 2));
 if (errors.length)

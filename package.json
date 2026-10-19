@@ -3,7 +3,7 @@
   "version": "1.4.0",
   "private": true,
   "type": "module",
-  "description": "A private relationship and project memory workspace with source-backed follow-ups, editable drafts and human decisions.",
+  "description": "A local Markdown memory library with search, source-backed answers, people, projects and tasks.",
   "engines": {
     "node": ">=22.16.0"
   },
@@ -14,18 +14,6 @@
     "validate": "node scripts/validate.js",
     "backup": "node scripts/backup.js",
     "recover": "node scripts/recover.js",
-    "leads": "node scripts/leads.js",
-    "ai-smoke": "node scripts/ai-smoke.js",
-    "demo": "node scripts/demo.js",
-    "test:ui": "python3 tests/browser/run_focus.py",
-    "test:upgrade": "node --test tests/migration.test.js",
-    "demo:warm": "node scripts/demo-warm.js",
-    "register:discord": "node --env-file-if-exists=.env scripts/register-discord.js",
-    "ai:warm-smoke": "node --env-file-if-exists=.env scripts/ai-warm-smoke.js",
-    "test:warm-ui": "python3 tests/browser/run_warm.py",
-    "demo:judge": "node scripts/demo-judge.js",
-    "test:judge-ui": "python3 tests/browser/run_judge.py",
-    "demo:clear": "node scripts/demo-clear.js",
-    "test:clarity-ui": "python3 tests/browser/run_clarity.py"
+    "ai-smoke": "node scripts/ai-smoke.js"
   }
 }

@@ -4,7 +4,6 @@ COPY --chown=node:node package.json server.js ./
 COPY --chown=node:node src ./src
 COPY --chown=node:node scripts ./scripts
 COPY --chown=node:node public ./public
-COPY --chown=node:node integrations ./integrations
 RUN mkdir -p /app/.data && chown node:node /app/.data && chmod 700 /app/.data
 USER node
 ENV HOST=0.0.0.0 PORT=4173 THREADLINE_DB=/app/.data/threadline.sqlite

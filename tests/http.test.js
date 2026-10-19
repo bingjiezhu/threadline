@@ -39,21 +39,6 @@ apiTest('Signing out revokes the server session', async ({ client }) => { const 
 apiTest('Expired sessions cannot access records', async ({ client, app }) => { const c = client(); await c.register(); app.store.db.prepare("UPDATE sessions SET expires_at='2000-01-01T00:00:00Z'").run(); assert.equal((await c.call('/api/state')).status, 401); });
 apiTest('Account deletion removes owned records while leaving another account intact', async ({ client, app }) => { const c = client(), other = client(); await c.register('delete@example.com'); await other.register('keep@example.com'); const state = (await c.call('/api/state')).data, w = state.workspace.id; const p = app.domain.createProject(w, { name: 'Owned project' }), n = app.domain.createNote(w, { title: 'Owned note', body: 'Private content for deletion.', project_id: p.id }); const claim = app.domain.createClaim(w, { note_id: n.id, kind: 'context', topic: 'private', quote: n.body }); app.domain.createTask(w, { title: 'Owned task' }); const r = await c.call('/api/account', 'DELETE', { password: 'This is a real passphrase!', confirm: 'DELETE' }); assert.equal(r.status, 200, JSON.stringify(r.data)); assert.equal(app.store.db.prepare('SELECT count(*) n FROM notes WHERE workspace_id=?').get(w).n, 0); assert.equal((await c.call('/api/state')).status, 401); assert.equal((await other.call('/api/state')).status, 200); });
 apiTest('Without an API key, AI calls fail explicitly and local note review remains available', async ({ client }) => { const c = client(); await c.register(); const n = (await c.call('/api/notes', 'POST', { title: 'Note', body: 'The project needs SSO.' })).data; const r = await c.call('/api/notes/' + n.id + '/extract', 'POST', { consent: true }); assert.equal(r.status, 503); assert.equal(r.data.error.code, 'ai_not_configured'); assert.equal((await c.call('/api/notes/' + n.id + '/scan', 'POST', {})).status, 200); });
-apiTest('Pilot-request form stores a consented inquiry, not a payment or sent email', async ({ client, app }) => { const c = client(); const r = await c.call('/api/pilot-requests', 'POST', { name: 'Prospect', email: 'p@example.com', company: 'Agency', goal: 'Reduce forgotten follow-ups', consent: true, website: '' }); assert.equal(r.status, 201); assert.equal(r.data.stored, true); assert.match(r.data.message, /No payment/); assert.equal(app.store.db.prepare('SELECT count(*) n FROM pilot_requests').get().n, 1); });
 apiTest('Static responses include CSP and no record data is embedded in shipped JavaScript', async ({ base }) => { const r = await fetch(base + '/'); assert.equal(r.status, 200); assert.match(r.headers.get('content-security-policy'), /script-src 'self'/); const js = await (await fetch(base + '/app.js')).text(); assert.doesNotMatch(js, /fullState|preState|localApi\(/); assert.equal((await fetch(base + '/.env')).status, 404); });
 apiTest('Authentication is rate-limited', async ({ client }) => { const c = client(); let last; for (let i = 0; i < 12; i++)
     last = await c.call('/api/auth/login', 'POST', { email: 'unknown@example.com', password: 'not the actual password' }); assert.equal(last.status, 429); });
-
-apiTest('Served English guides use same-origin styles compatible with strict CSP', async ({ base }) => {
-    for (const [page, stylesheet] of [['/guide', '/marketing.css'], ['/guide-warm.html', '/guide-warm.css'], ['/guide-judges.html', '/guide-clarity.css']]) {
-        const response = await fetch(base + page), html = await response.text();
-        assert.equal(response.status, 200);
-        assert.match(response.headers.get('content-security-policy'), /style-src 'self'/);
-        assert.doesNotMatch(html, /<style\b|\sstyle=["']/i);
-        assert.ok(html.includes('href="' + stylesheet + '"'));
-        const css = await fetch(base + stylesheet);
-        assert.equal(css.status, 200);
-        assert.match(css.headers.get('content-type'), /text\/css/);
-        assert.ok((await css.text()).length > 100);
-    }
-});

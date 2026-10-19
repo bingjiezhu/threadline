@@ -2,9 +2,6 @@ import { createMarkdownVault } from './src/markdown-vault.js';
 import { createMemoryImport } from './src/memory-import.js';
 import { createMemoryStore } from './src/memory-store.js';
 import { createMemoryAgent } from './src/memory-agent.js';
-import { createConversationService } from './src/conversation-service.js';
-import { createWarmStart } from './src/warm-start.js';
-import { createChatConnectors } from './src/chat-connectors.js';
 import { createRelationships } from './src/relationships.js';
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
@@ -14,8 +11,7 @@ import { openStore } from './src/store.js';
 import { createAuth } from './src/auth.js';
 import { createDomain } from './src/domain.js';
 import { createAI } from './src/ai.js';
-import { createSourceReview } from './src/source-review.js';
-import { uid, now, hash, text, email, ensure, only, safeEqual, AppError } from './src/util.js';
+import { uid, now, hash, ensure, only, safeEqual, AppError } from './src/util.js';
 const ROOT = dirname(fileURLToPath(import.meta.url));
 export function makeApp(config = {}) {
     const store = openStore(config.dbPath), domain = createDomain(store), auth = createAuth(store, config);
@@ -31,11 +27,7 @@ export function makeApp(config = {}) {
     const memory = createMemoryStore(store, domain);
     const memoryImport = createMemoryImport(store, domain, memory);
     const memoryAgent = createMemoryAgent(store, domain, memory, { syncWorkspace, vertexProject: config.vertexProject, vertexModel: config.openaiModel, tokenProvider: config.tokenProvider, vertexAccessToken: config.vertexAccessToken, fetchImpl: config.fetchImpl });
-    const conversations = createConversationService(store, domain, memoryAgent, dispatch, {...config,syncWorkspace,flushWorkspace});
     const relationships = createRelationships(store, domain);
-    const warm = createWarmStart(store, domain);
-    const sourceReview = createSourceReview(store, domain, warm);
-    const chats = createChatConnectors(store, domain, relationships, {...config,syncWorkspace,flushWorkspace});
     vault = createMarkdownVault(store,domain,{root:config.memoryDir || process.env.THREADLINE_MEMORY_DIR});
     vault.migrate();
     const inflight = new Set();
@@ -102,49 +94,6 @@ export function makeApp(config = {}) {
         mem = match(/^\/api\/memory\/agent\/runs\/([\w-]+)(?:\/actions\/(\d+)\/(confirm))?$/);
         if (mem && m === 'GET' && !mem[3]) return memoryAgent.getRun(w, mem[1]);
         if (mem && m === 'POST' && mem[3]) return memoryAgent.confirmAction(w, mem[1], Number(mem[2]), input);
-        if (m === 'POST' && p === '/api/memory/conversations/message') return conversations.message(s, input);
-        if (m === 'GET' && p === '/api/warm')
-            return warm.home(w);
-        const sr = match(/^\/api\/warm\/source-reviews\/([\w-]+)(?:\/(confirm))?$/);
-        if (sr && m === 'GET' && !sr[2]) return sourceReview.read(w, sr[1]);
-        if (sr && m === 'POST' && sr[2] === 'confirm') return sourceReview.confirm(w, sr[1], input);
-        const sg = match(/^\/api\/warm\/goals\/([\w-]+)\/source-review$/);
-        if (sg && m === 'POST') return ai.reviewSource(w, sg[1], input, sourceReview);
-        if (m === 'POST' && p === '/api/warm/routes')
-            return wrap(() => warm.createRoute(w, input));
-        let wa = match(/^\/api\/warm\/routes\/([\w-]+)$/);
-        if (wa && m === 'DELETE')
-            return wrap(() => warm.revoke(w, wa[1], input));
-        if (m === 'POST' && p === '/api/warm/goals')
-            return wrap(() => warm.createGoal(w, input));
-        wa = match(/^\/api\/warm\/goals\/([\w-]+)$/);
-        if (wa && m === 'GET')
-            return warm.goal(w, wa[1]);
-        if (wa && m === 'PATCH')
-            return wrap(() => warm.editGoal(w, wa[1], input));
-        wa = match(/^\/api\/warm\/goals\/([\w-]+)\/plan$/);
-        if (wa && m === 'POST') {
-            only(input, ['use_ai', 'consent']);
-            return input.use_ai ? ai.warmPlan(w, wa[1], { consent: input.consent }, warm) : warm.plan(w, wa[1]);
-        }
-        wa = match(/^\/api\/warm\/plans\/([\w-]+)\/approve$/);
-        if (wa && m === 'POST')
-            return warm.approve(w, wa[1], input);
-        wa = match(/^\/api\/warm\/plans\/([\w-]+)\/draft$/);
-        if (wa && m === 'PATCH')
-            return wrap(() => warm.saveDraft(w, wa[1], input));
-        if (m === 'GET' && p === '/api/connections')
-            return chats.home(w);
-        if (m === 'POST' && p === '/api/connections/code')
-            return chats.issue(w, input);
-        wa = match(/^\/api\/connections\/([\w-]+)$/);
-        if (wa && m === 'DELETE') {
-            only(input, []);
-            return chats.unlink(w, wa[1]);
-        }
-        wa = match(/^\/api\/inbox\/([\w-]+)\/(confirm|dismiss)$/);
-        if (wa && m === 'POST')
-            return wa[2] === 'confirm' ? chats.confirm(w, wa[1], input) : chats.dismiss(w, wa[1], input);
         if (m === 'POST' && p === '/api/capture')
             return relationships.capture(w, input);
         if (m === 'GET' && p === '/api/people/find')
@@ -237,7 +186,7 @@ export function makeApp(config = {}) {
             only(input, ['password']);
             await auth.confirm(s.user.id, input.password);
             syncWorkspace(w);
-            return { ...domain.export(w), extensions: { warm_start: warm.export(w), chat: chats.export(w), memory: memory.state(w), agent: memoryAgent.history(w), memory_imports: memoryImport.sources(w) } };
+            return { ...domain.export(w), extensions: { memory: memory.state(w), agent: memoryAgent.history(w), memory_imports: memoryImport.sources(w) } };
         }
         if (m === 'POST' && p === '/api/restore') {
             auth.rate('reauth:' + s.user.id, 10);
@@ -263,22 +212,13 @@ export function makeApp(config = {}) {
             ensure(allowed.includes(host), 'Unrecognized Host header.', 403, 'invalid_host');
             const url = new URL(req.url, 'http://' + host);
             const p = url.pathname;
-            if (['/hooks/slack', '/hooks/discord'].includes(p)) {
-                ensure(req.method === 'POST', 'Use POST.', 405);
-                auth.rate('webhook:' + req.socket.remoteAddress, 180, 60000);
-                const ct = req.headers['content-type'] || '';
-                ensure(p.endsWith('slack') ? ct.startsWith('application/x-www-form-urlencoded') : ct.startsWith('application/json'), 'Unsupported webhook content type.', 415);
-                let total = 0;
-                const chunks = [];
-                for await (const chunk of req) {
-                    total += chunk.length;
-                    ensure(total <= 128 * 1024, 'Webhook too large.', 413);
-                    chunks.push(chunk);
-                }
-                const raw = Buffer.concat(chunks);
-                const result = p.endsWith('slack') ? chats.slack(req.headers, raw) : chats.discord(req.headers, raw);
-                return send(res, 200, result);
-            }
+            // Removed channel entry points must never reach authentication, a
+            // legacy cached response, or private workspace/Markdown data.
+            const externalChannel = /^\/hooks(?:\/|$)/.test(p)
+                || /^\/api\/(?:connections|inbox|chat|channels)(?:\/|$)/.test(p)
+                || /^\/api\/memory\/conversations(?:\/|$)/.test(p);
+            if (externalChannel)
+                return send(res, 410, { error: { code: 'channel_disabled', message: 'External messaging is disabled.' } });
             const mutating = !['GET', 'HEAD'].includes(req.method);
             if (mutating) {
                 const given = req.headers.origin;
@@ -298,16 +238,6 @@ export function makeApp(config = {}) {
                 auth.rate('email:' + String(i.email || '').trim().toLowerCase(), 15);
                 const session = p.endsWith('register') ? await auth.register(i) : await auth.login(i);
                 return send(res, 200, { user: session.user, csrf: session.csrf }, { 'set-cookie': cookie(session) });
-            }
-            if (p === '/api/pilot-requests' && req.method === 'POST') {
-                auth.rate('lead:' + req.socket.remoteAddress, 5, 3600000);
-                const i = await body(req);
-                only(i, ['name', 'email', 'company', 'goal', 'consent', 'website']);
-                ensure(!i.website, 'Please leave the hidden field empty.');
-                ensure(i.consent === true, 'Consent is required to store a pilot request.');
-                const id = uid();
-                store.db.prepare('INSERT INTO pilot_requests VALUES(?,?,?,?,?,?,?)').run(id, text(i.name, 'Name', 100), email(i.email), text(i.company, 'Company', 160), text(i.goal, 'Goal', 2000), 1, now());
-                return send(res, 201, { id, stored: true, message: 'Your request is saved for this server’s operator. No payment has been taken and no email has been sent.' });
             }
             if (p.startsWith('/api/')) {
                 const session = auth.resolve(getToken(req));
@@ -355,7 +285,7 @@ export function makeApp(config = {}) {
                 try {
                     const result = await dispatch(req, url, input, session);
                     if(mutating && p!='/api/memory/vault/sync')flushWorkspace(w);
-                    if (mutating && p != '/api/export' && p != '/api/connections/code' && p != '/api/memory/imports/preview' && p != '/api/memory/vault/sync') {
+                    if (mutating && p != '/api/export' && p != '/api/memory/imports/preview' && p != '/api/memory/vault/sync') {
                         const g = domain.workspace(w).generation;
                         store.db.prepare('INSERT OR REPLACE INTO idempotency VALUES(?,?,?,?,?,?)').run(w, key, requestHash, JSON.stringify(result), g, now());
                         store.db.prepare('DELETE FROM idempotency WHERE created_at<?').run(new Date(Date.now() - 86400000).toISOString());
@@ -398,14 +328,14 @@ export function makeApp(config = {}) {
     });
     server.requestTimeout = 60000;
     server.headersTimeout = 20000;
-    return { server, store, domain, auth, ai, warm, chats, memory, memoryAgent, memoryImport, conversations, vault, async close() { await conversations.close(); await memoryAgent.drain(); await ai.drain(); await chats.drain(); vault.flush(); await new Promise(r => server.close(r)); store.close(); } };
+    return { server, store, domain, auth, ai, memory, memoryAgent, memoryImport, vault, async close() { await memoryAgent.drain(); await ai.drain(); vault.flush(); await new Promise(r => server.close(r)); store.close(); } };
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
     try {
         const production = process.env.NODE_ENV === 'production';
         if (production)
             ensure(process.env.APP_ORIGIN?.startsWith('https://') && process.env.REGISTRATION_TOKEN?.length >= 24, 'Production requires HTTPS APP_ORIGIN and a REGISTRATION_TOKEN of at least 24 characters.');
-        const app = makeApp({ dbPath: process.env.THREADLINE_DB, registrationToken: process.env.REGISTRATION_TOKEN, origin: process.env.APP_ORIGIN, secureCookies: production, openaiKey: process.env.OPENAI_API_KEY, openaiModel: process.env.THREADLINE_AI_PROVIDER === 'vertex' ? process.env.THREADLINE_VERTEX_MODEL : process.env.OPENAI_MODEL, aiProvider: process.env.THREADLINE_AI_PROVIDER, vertexProject: process.env.THREADLINE_VERTEX_PROJECT, vertexAccessToken: process.env.THREADLINE_VERTEX_ACCESS_TOKEN, dailyLimit: Number(process.env.AI_DAILY_LIMIT) || 30, slackBotToken: process.env.SLACK_BOT_TOKEN, slackSigningSecret: process.env.SLACK_SIGNING_SECRET, slackTeamId: process.env.SLACK_TEAM_ID, discordPublicKey: process.env.DISCORD_PUBLIC_KEY, discordApplicationId: process.env.DISCORD_APPLICATION_ID });
+        const app = makeApp({ dbPath: process.env.THREADLINE_DB, registrationToken: process.env.REGISTRATION_TOKEN, origin: process.env.APP_ORIGIN, secureCookies: production, openaiKey: process.env.OPENAI_API_KEY, openaiModel: process.env.THREADLINE_AI_PROVIDER === 'vertex' ? process.env.THREADLINE_VERTEX_MODEL : process.env.OPENAI_MODEL, aiProvider: process.env.THREADLINE_AI_PROVIDER, vertexProject: process.env.THREADLINE_VERTEX_PROJECT, vertexAccessToken: process.env.THREADLINE_VERTEX_ACCESS_TOKEN, dailyLimit: Number(process.env.AI_DAILY_LIMIT) || 30 });
         const port = Number(process.env.PORT) || 4173;
         app.server.listen(port, process.env.HOST || '127.0.0.1', () => console.log(`Threadline is ready at ${process.env.APP_ORIGIN || 'http://localhost:' + port}. Data persists in ${app.store.path}.`));
         const stop = () => app.close().then(() => process.exit(0));

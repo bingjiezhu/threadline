@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync, readFileSync, statSync, chmodSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, statSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,7 +9,6 @@ import { DatabaseSync } from 'node:sqlite';
 import { openStore } from '../src/store.js';
 import { createAuth } from '../src/auth.js';
 import { createDomain } from '../src/domain.js';
-import { uid, now } from '../src/util.js';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const pass = 'Temporary operator test passphrase';
 async function setup() { const dir = mkdtempSync(join(tmpdir(), 'threadline-operator-')), path = join(dir, 'actual.sqlite'); const store = openStore(path), auth = createAuth(store), session = await auth.register({ name: 'Test Owner', email: 'owner@example.invalid', password: pass }); const domain = createDomain(store); domain.createContact(session.user.workspace_id, { name: 'Persisted test contact' }); return { dir, path, store, auth, session, domain, run(file, args = []) { return spawnSync(process.execPath, [join(root, 'scripts', file), ...args], { cwd: root, env: { ...process.env, THREADLINE_DB: path }, encoding: 'utf8' }); }, clean() { try {
@@ -63,25 +62,6 @@ test('Offline recovery rejects a world-readable password file on POSIX', async (
     const r = c.run('recover.js', ['--email', 'owner@example.invalid', '--password-file', file, '--confirm']);
     assert.notEqual(r.status, 0);
     assert.match(r.stderr, /must be private/);
-}
-finally {
-    c.clean();
-} });
-test('Pilot inquiries export safely and delete only with explicit operator confirmation', async () => { const c = await setup(); try {
-    const id = uid();
-    c.store.db.prepare('INSERT INTO pilot_requests VALUES(?,?,?,?,?,?,?)').run(id, '=HYPERLINK("invalid")', 'pilot@example.invalid', 'FictionalCo', 'A test inquiry', 1, now());
-    const out = join(c.dir, 'inquiries.csv');
-    let r = c.run('leads.js', ['--export', out]);
-    assert.equal(r.status, 0, r.stderr);
-    assert.match(readFileSync(out, 'utf8'), /"'=HYPERLINK/);
-    if (process.platform !== 'win32')
-        assert.equal(statSync(out).mode & 0o077, 0);
-    r = c.run('leads.js', ['--delete', id]);
-    assert.notEqual(r.status, 0);
-    assert.equal(c.store.db.prepare('SELECT count(*) n FROM pilot_requests').get().n, 1);
-    r = c.run('leads.js', ['--delete', id, '--confirm']);
-    assert.equal(r.status, 0, r.stderr);
-    assert.equal(c.store.db.prepare('SELECT count(*) n FROM pilot_requests').get().n, 0);
 }
 finally {
     c.clean();

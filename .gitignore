@@ -1,50 +1,27 @@
+# Private runtime and user data
 .env
 .env.*
 !.env.example
 .data/
+.runtime/
+/memory/
 backups/
-node_modules/
+exports/
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
 *.log
+*.pem
+*.key
+*credentials*.json
+*access-token*.json
+
+# Local tooling and evidence
+node_modules/
+.venv/
 __pycache__/
 .DS_Store
-
-# Optional media authoring environment and intermediate assets
-.media-venv/
-artifacts/media/raw/
-artifacts/media/*.log
-artifacts/media/original-instrumental.wav
-artifacts/media/main.mp4
-artifacts/media/intro.mp4
-artifacts/media/outro.mp4
-
-# Current media-authoring intermediates (finished deliveries may be distributed)
-artifacts/v1.2/media/raw/
-artifacts/v1.2/media/original-instrumental.wav
-artifacts/v1.2/media/main.mp4
-artifacts/v1.2/media/intro.mp4
-artifacts/v1.2/media/outro.mp4
+artifacts/
+release-evidence/
+test-results/
 .release-temp/
-
-# Warm Start media intermediates
-artifacts/v1.3/media/raw/
-artifacts/v1.3/media/original-instrumental.wav
-artifacts/v1.3/media/main.mp4
-artifacts/v1.3/media/intro.mp4
-artifacts/v1.3/media/outro.mp4
-
-# Judges edition media intermediates
-artifacts/v1.3.1/media/focus-instrumental.wav
-artifacts/v1.3.1/media/focus-main.mp4
-artifacts/v1.3.1/media/*-focus.mp4
-artifacts/v1.3.1/media/stage-*.mp4
-artifacts/v1.3.1/media/*concat.txt
-
-# Private conversational runtime and optional Python environment
-.runtime/
-.venv/
-
-# Optional local Markdown vault when placed at the repository root
-/memory/

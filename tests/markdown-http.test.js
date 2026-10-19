@@ -38,10 +38,6 @@ function replaceBody(path, body) {
     assert.ok(delimiter > 0, 'The generated file has inspectable front matter.');
     writeFileSync(path, markdown.slice(0, delimiter + 5) + body);
 }
-function channelMessage(message, extra = {}) {
-    return { channel: 'imessage', session: 'fictional-owner-phone', message_id: uid(), message, ...extra };
-}
-
 httpTest('HTTP note creation writes an owner-local Markdown original before success is returned', async ({ app, client }) => {
     const c = client(), other = client();
     await c.register('markdown-owner@example.invalid'); await other.register('markdown-other@example.invalid');
@@ -55,22 +51,6 @@ httpTest('HTTP note creation writes an owner-local Markdown original before succ
     assert.equal(memory.vault.managed_count, 1);
     assert.equal((await other.call(`/api/memory/sources/${source.id}/markdown`)).status, 404);
     assert.equal((await ok(other, '/api/memory')).sources.length, 0);
-});
-
-httpTest('explicit iMessage capture writes the shared Markdown library exactly once without inventing a task', async ({ app, client }) => {
-    const c = client(); await c.register();
-    const input = channelMessage('Remember this: I prefer a short agenda before every meeting.');
-    const first = await ok(c, '/api/memory/conversations/message', 'POST', input);
-    assert.match(first.reply, /Saved to Memory/);
-    const again = await ok(c, '/api/memory/conversations/message', 'POST', input);
-    assert.equal(again.reply, first.reply);
-    const memory = await ok(c, '/api/memory');
-    assert.equal(memory.sources.length, 1);
-    const source = await ok(c, `/api/memory/sources/${memory.sources[0].id}`);
-    assert.equal(source.body, input.message);
-    assert.equal(source.origin, 'photon');
-    assert.ok(readFileSync(await managedFile(app, c, source.id), 'utf8').endsWith(input.message));
-    assert.equal((await ok(c, '/api/state')).tasks.length, 0);
 });
 
 httpTest('selected local memory import copies original text into Markdown while preserving the selected external file', async ({ app, client, folder }) => {

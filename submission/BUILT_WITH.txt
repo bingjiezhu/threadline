@@ -1,3 +1,0 @@
-Node.js, JavaScript, SQLite, HTML5, CSS3, Gemini, Google Cloud Vertex AI.
-
-The optional first-task MCP extension remains available, but the personal relationship workflow is the main product.

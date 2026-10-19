@@ -32,31 +32,52 @@ test('Vertex credentials and endpoint errors cannot leak operator secrets or rou
     await assert.rejects(() => vertexJson({ ...options, fetchImpl: async () => new Response('operator-secret', { status: 403 }) }), error => error.code === 'provider_error' && !error.message.includes('operator-secret'));
 });
 
-test('Vertex HTTP workflow preserves provider identity, consent, selected approval and source invalidation (contract stub)', async () => {
+test('Vertex memory HTTP preserves consent, cited proposals, explicit task confirmation and source invalidation (contract stub)', async () => {
     let calls = 0;
+    const quote = 'I promised to send the orchid agenda by 2026-10-23.';
     const x = await setup({ aiProvider: 'vertex', vertexProject: 'synthetic-project', openaiModel: 'gemini-contract-test', tokenProvider: options.tokenProvider,
-        fetchImpl: async (_, request) => { calls++; const payload = JSON.parse(JSON.parse(request.body).contents[0].parts[0].text); return response({ summary: 'Read the note and ask the confirmed colleague.', steps: ['read', 'ask', 'verify'].map(kind => ({ kind, route_id: payload.selected_route_id, instruction: `Review the authorized ${kind} step.` })), unknowns: ['Availability still needs checking.'] }); } });
+        fetchImpl: async (_, request) => {
+            calls++;
+            const payload = JSON.parse(JSON.parse(request.body).contents[0].parts[0].text), source = payload.sources[0];
+            return response({
+                answer: 'You promised to send the orchid agenda by October 23. [1]',
+                citations: [{ source_id: source.source_id, source_version: source.source_version, quote }],
+                actions: [{ type: 'create_task', title: 'Send the orchid agenda', due_on: '2026-10-23', contact_id: source.allowed_contact_id, project_id: source.allowed_project_id, source_id: source.source_id, source_version: source.source_version, quote }]
+            });
+        } });
     try {
-        const c = x.client(), auth = await c.register(), w = auth.user.workspace_id;
-        const person = x.app.domain.createContact(w, { name: 'Synthetic Jordan' });
-        const note = x.app.domain.createNote(w, { title: 'Synthetic guide', body: 'Synthetic Jordan handles sandbox access. Training is required.', occurred_on: '2026-10-16' });
-        x.app.warm.createRoute(w, { topic: 'sandbox', contact_id: person.id, note_id: note.id, quote: note.body, route_role: 'approver', confirm: true });
-        const goal = x.app.warm.createGoal(w, { title: 'First task', topic: 'sandbox', role: 'New engineer', success: 'Explain one test.' });
-        assert.equal((await c.call(`/api/warm/goals/${goal.id}/plan`, 'POST', { use_ai: true, consent: false })).status, 400);
+        const c = x.client(); await c.register();
+        const person = (await c.call('/api/contacts', 'POST', { name: 'Test contact' })).data;
+        const saved = await c.call('/api/memory/sources', 'POST', { title: 'Orchid agenda', body: quote, occurred_on: '2026-10-16', contact_id: person.id, origin: 'web' });
+        assert.equal(saved.status, 200);
+        const source = saved.data.source, question = { question: 'What did I promise about the orchid agenda?', use_ai: true };
+        assert.equal((await c.call('/api/memory/agent/ask', 'POST', { ...question, consent: false })).status, 400);
         assert.equal(calls, 0);
-        const started = await c.call(`/api/warm/goals/${goal.id}/plan`, 'POST', { use_ai: true, consent: true });
-        assert.equal(started.status, 202);
-        await x.app.ai.drain();
-        const plan = x.app.warm.goal(w, goal.id).plans[0];
-        assert.equal(plan.body.provider, 'vertex');
-        assert.equal(plan.body.model, 'gemini-contract-test');
-        assert.equal(x.app.domain.state(w).tasks.length, 0);
-        const approved = x.app.warm.approve(w, plan.id, { version: plan.version, confirm: true, step_ids: ['read', 'ask'] });
-        assert.equal(approved.tasks.length, 2);
-        x.app.domain.deleteNote(w, note.id, { version: note.version });
-        const stale = x.app.warm.goal(w, goal.id).plans[0];
-        assert.equal(stale.status, 'stale');
-        assert.deepEqual(stale.body, {});
-        assert.ok(stale.tasks.every(task => task.status === 'cancelled'));
+        const asked = await c.call('/api/memory/agent/ask', 'POST', { ...question, consent: true });
+        assert.equal(asked.status, 200, JSON.stringify(asked.data));
+        const run = asked.data;
+        assert.equal(run.state, 'done');
+        assert.equal(run.provider, 'vertex');
+        assert.equal(run.model, 'gemini-contract-test');
+        assert.equal(run.citations[0].source_id, source.id);
+        assert.equal(run.citations[0].quote, quote);
+        assert.equal(run.actions.length, 1);
+        assert.equal((await c.call('/api/state')).data.tasks.length, 0);
+        const approved = await c.call(`/api/memory/agent/runs/${run.id}/actions/0/confirm`, 'POST', { source_version: source.version });
+        assert.equal(approved.status, 200, JSON.stringify(approved.data));
+        assert.equal(approved.data.task.title, 'Send the orchid agenda');
+        assert.equal(approved.data.task.contact_id, person.id);
+        assert.equal((await c.call('/api/state')).data.tasks.length, 1);
+        const removed = await c.call(`/api/memory/sources/${source.id}/forget`, 'POST', { version: source.version });
+        assert.equal(removed.status, 200);
+        const stale = (await c.call(`/api/memory/agent/runs/${run.id}`)).data;
+        assert.equal(stale.state, 'stale');
+        assert.equal(stale.answer, '');
+        assert.deepEqual(stale.citations, []);
+        assert.doesNotMatch(JSON.stringify(stale), /promised to send/);
+        const task = (await c.call('/api/state')).data.tasks[0];
+        assert.match(task.title, /Supporting memory source changed/);
+        assert.equal(task.notes, '');
+        assert.equal(calls, 1);
     } finally { await x.app.close(); }
 });

@@ -2,7 +2,7 @@ import { ensure, now, oneOf, only, quoteSpan, text, topic, uid, version } from '
 import { analyzeMemoryQuery, memoryQueryTerms, memoryWord } from './memory-query.js';
 
 export const memoryKinds = ['fact', 'preference', 'decision', 'commitment', 'goal', 'open_question'];
-const origins = ['web', 'photon', 'asi', 'import'];
+const origins = ['web', 'import'];
 const activeStatuses = new Set(['proposed', 'confirmed']);
 const normalize = value => String(value || '').normalize('NFKC').toLocaleLowerCase('en-US');
 const tokens = value => [...String(value || '').matchAll(/[\p{L}\p{N}]+/gu)].map(match => ({ word: memoryWord(match[0]), index: match.index, end: match.index + match[0].length }));

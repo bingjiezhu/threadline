@@ -1,6 +1,0 @@
-interface:
-  display_name: "Threadline First Task"
-  short_description: "Review quoted sources and prepare a first-task proposal"
-  default_prompt: "Use $first-task to review my saved Threadline task and explain its current sources and next decision."
-policy:
-  allow_implicit_invocation: true

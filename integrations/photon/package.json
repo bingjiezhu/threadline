@@ -1,1 +1,0 @@
-{"name":"threadline-photon-isolated-demo","version":"0.1.0","private":true,"type":"module","scripts":{"start":"node bridge.mjs","test":"node --test bridge.test.mjs assistant.test.mjs"},"dependencies":{"@photon-ai/api":"0.5.0"}}
