@@ -27,6 +27,16 @@ Default receive window is 600 seconds; an operator can explicitly request up to 
 
 Private durable inbox/outbox/seen files prevent ordinary retries and restarts from duplicating actions. Responses are saved before transmission. Ambiguous writes after an interrupted process require checking the app instead of automatic replay.
 
+## Query imported memory
+
+These read-only prompts use the local source library:
+
+- `Search my Codex memory for <topic>.`
+- `What does my Claude memory say about <topic>?`
+- `Show the source for my Claude <filename> memory.`
+
+Explicit source names filter import provenance. Replies contain up to two short original excerpts with source names, without duplicating the website answer. A missing topic returns no result. Quoted source text retains its original language. Prefixing `Ask AI:` explicitly permits Gemini synthesis from selected retrieved excerpts; ordinary memory queries do not call a model.
+
 ## Optional Gemini understanding
 
 The examples above work locally. Configure Vertex on the Threadline server; operator ADC stays on that host. Send `Ask AI: What does Alex prefer before a meeting?` to explicitly allow that question and bounded retrieved excerpts to be synthesized by Gemini. Its answer, citations and proposed tasks are visible in the website Personal agent history. Review tasks on the website before creating them. After reading the help text, the owner can send `Enable AI understanding` / `enable AI understanding`. Only subsequent incoming message text and the current local date are sent to Gemini for structured intent parsing, not the stored notes or whole contact database. Parsed fields must be literal spans of the incoming message. The server resolves actual IDs and enforces confirmation; the model cannot approve evidence, contact anyone or choose arbitrary API routes. There is a 30-attempt local-day limit. Failures explicitly fall back to local supported patterns. `Disable AI understanding` disables it.

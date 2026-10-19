@@ -1,3 +1,4 @@
+import { isMemoryRecallRequest } from './memory-query.js';
 /** Core personal conversation workflow. Channels only transport messages to this service. */
 import {readFileSync,writeFileSync,renameSync,mkdirSync,chmodSync,existsSync,statSync,lstatSync} from 'node:fs';
 import {dirname,resolve} from 'node:path';
@@ -277,6 +278,7 @@ export async function createAssistant({env=process.env,client,now=()=>new Date()
       }
       else if(quickCapture&&text.match(quickCapturePrefix)&&!captureCommand)reply=say(s,'你想记下什么？请在“记一下：”后加上内容。','What should I remember? Add the content after “Remember this:”.');
       else if(!captureCommand&&negativeSave.test(text)){delete s.pending;delete s.clarify;reply=say(s,'不会保存。你可以直接问我现有记录。','I will not save anything. You can ask about existing records.');}
+      else if(recall && !captureCommand && !['capture','task','draft'].includes(parseLocalIntent(text).intent) && isMemoryRecallRequest(text)) { delete s.pending; delete s.clarify; reply=await recall(text,{use_ai:false,session}); }
       else if(/^(启用\s*AI\s*理解|enable AI understanding)$/i.test(text)){if(!vertex?.project&&!planner)reply=say(s,'这台电脑尚未配置 Gemini；常用记录、查询和待办仍可使用。','Gemini is not configured on this computer; ordinary notes, queries and tasks still work.');else{s.aiEnabled=true;reply=say(s,'已开启。之后仅把你发来的消息交给 Gemini 解析意图，不上传整个人脉库；保存仍需你确认。回复“关闭AI理解”可停用。','Enabled. Gemini will parse only your incoming messages, not the whole workspace. '+(quickCapture?'Explicit “Remember this:” notes save directly; tasks still require confirmation.':'Saving still requires confirmation.')+' Say “disable AI understanding” to stop.');}}
       else if(/^(关闭\s*AI\s*理解|disable AI understanding)$/i.test(text)){s.aiEnabled=false;reply=say(s,'已关闭 AI 理解，继续使用本地常用操作。','AI understanding is off; local commands remain available.');}
       else if(s.pending&&/^(改成|改为|change to)\s*[:：]?/i.test(text)){

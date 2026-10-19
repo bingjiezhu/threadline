@@ -1,3 +1,4 @@
+import { formatMemoryReply } from './memory-reply.js';
 import { createAssistant } from './personal-conversation.js';
 import { ensure, only, hash, now } from './util.js';
 
@@ -59,9 +60,7 @@ export function createConversationService(store, domain, agent, dispatch, config
           const old=db.prepare('SELECT thread_id FROM memory_channel_threads WHERE workspace_id=? AND channel=? AND session=?').get(w,channel,chatSession);
           const run=await agent.ask(w,{question,thread_id:old?.thread_id,use_ai,consent:use_ai});
           if(run.thread_id)db.prepare('INSERT INTO memory_channel_threads VALUES(?,?,?,?) ON CONFLICT(workspace_id,channel,session) DO UPDATE SET thread_id=excluded.thread_id').run(w,channel,chatSession,run.thread_id);
-          if(run.state!=='done')return 'I could not complete this memory request: '+run.error;
-          const citations=run.citations.slice(0,3).map((c,i)=>`[${i+1}] ${c.title}: “${c.quote}”`).join('\n');
-          return `${run.answer}${citations?'\n\n'+citations:''}${run.actions?.length?'\n\nI proposed '+run.actions.length+' task(s). Review and confirm them in Personal agent on the website.':''}\n\n${use_ai?'Gemini used the retrieved excerpts.':'Local source retrieval.'}`;
+          return formatMemoryReply(run);
         }});
     })();
     engines.set(key,start);start.catch(()=>engines.delete(key));return start;

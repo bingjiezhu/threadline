@@ -1,17 +1,36 @@
 import { ensure, now, oneOf, only, quoteSpan, text, topic, uid, version } from './util.js';
+import { analyzeMemoryQuery, memoryQueryTerms, memoryWord } from './memory-query.js';
 
 export const memoryKinds = ['fact', 'preference', 'decision', 'commitment', 'goal', 'open_question'];
 const origins = ['web', 'photon', 'asi', 'import'];
 const activeStatuses = new Set(['proposed', 'confirmed']);
-const stopWords = new Set('a an and are as at be before can could did do does for from give had has have how i in is it me my of on or please remember should tell that the their them there they this to was were what when where which who why will with would you your'.split(' '));
 const normalize = value => String(value || '').normalize('NFKC').toLocaleLowerCase('en-US');
-const words = value => [...new Set((normalize(value).match(/[\p{L}\p{N}]+/gu) || []).filter(v => v.length > 1 && !stopWords.has(v)))].slice(0, 40);
-const excerpt = (body, terms, length = 800) => {
-    const lower = normalize(body);
-    const positions = terms.map(term => lower.indexOf(term)).filter(n => n >= 0);
-    const start = Math.max(0, (positions.length ? Math.min(...positions) : 0) - 100);
-    return body.slice(start, start + length);
-};
+const tokens = value => [...String(value || '').matchAll(/[\p{L}\p{N}]+/gu)].map(match => ({ word: memoryWord(match[0]), index: match.index, end: match.index + match[0].length }));
+const tokenSet = value => new Set(tokens(value).map(token => token.word));
+const hasTerm = (set, term) => set.has(term) || (/\p{Script=Han}/u.test(term) && [...set].some(word => word.includes(term)));
+function excerpt(body, terms, length = 700) {
+    // Work in offsets of the original string, never offsets from a normalized copy.
+    const frontmatter = body.match(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/)?.[0].length || 0;
+    const positions = tokens(body).filter(token => terms.some(term => hasTerm(new Set([token.word]), term)) && token.index >= frontmatter);
+    const candidates = positions.length ? positions.slice(0, 500).map(token => {
+        const paragraph = body.lastIndexOf('\n\n', token.index);
+        const line = body.lastIndexOf('\n', token.index);
+        const start = Math.max(frontmatter, paragraph >= 0 && paragraph >= token.index - 160 ? paragraph + 2 : line >= 0 && line >= token.index - 100 ? line + 1 : token.index - 80);
+        const value = body.slice(start, start + length), set = tokenSet(value);
+        const count = terms.filter(term => hasTerm(set, term)).length;
+        const phrase = terms.length > 1 && normalize(value).includes(terms.join(' '));
+        const proximity = positions.filter(pos => pos.index >= start && pos.index < start + 250).length;
+        return { start, score: count * 100 + (phrase ? 80 : 0) + Math.min(proximity, 5) };
+    }) : [{ start: frontmatter, score: 0 }];
+    candidates.sort((a, b) => b.score - a.score || a.start - b.start);
+    const start = candidates[0].start;
+    let end = Math.min(body.length, start + length);
+    if (end < body.length) {
+        const boundary = body.lastIndexOf('\n', end);
+        if (boundary > start + length * 0.6) end = boundary;
+    }
+    return body.slice(start, end).trim();
+}
 
 /** Persistent derived memory over the existing owner-scoped notes; no second note store. */
 export function createMemoryStore(store, domain) {
@@ -173,13 +192,20 @@ export function createMemoryStore(store, domain) {
         },
         retrieve(w, input = {}) {
             owner(w);
-            only(input, ['query', 'limit', 'contact_id', 'project_id']);
+            only(input, ['query', 'limit', 'contact_id', 'project_id', 'providers']);
             const query = text(input.query ?? '', 'Memory query', 2000, false);
             const limit = input.limit ?? 8;
             ensure(Number.isInteger(limit) && limit > 0 && limit <= 25, 'Choose a retrieval limit from 1 to 25.');
             if (input.contact_id) domain.row('contacts', w, input.contact_id);
             if (input.project_id) domain.row('projects', w, input.project_id);
-            const terms = words(query);
+            const analysis = analyzeMemoryQuery(query);
+            const providers = input.providers ?? analysis.providers;
+            ensure(Array.isArray(providers) && providers.every(provider => ['codex', 'claude'].includes(provider)), 'Choose Codex or Claude import sources.');
+            const terms = memoryQueryTerms(analysis.query);
+            const importRows = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='memory_imports'").get()
+                ? db.prepare('SELECT source_id,provider,path,source_version FROM memory_imports WHERE workspace_id=?').all(w) : [];
+            const imports = new Map();
+            for (const row of importRows) { if (!imports.has(row.source_id)) imports.set(row.source_id, []); imports.get(row.source_id).push(row); }
             const all = allItems(w);
             const memories = all.filter(m => m.valid && m.status === 'confirmed');
             const notes = db.prepare(`${sourceSql} WHERE n.workspace_id=? AND n.deleted=0`).all(w);
@@ -187,22 +213,31 @@ export function createMemoryStore(store, domain) {
             for (const n of notes) {
                 if (input.contact_id && (n.contact_id || n.project_contact_id) !== input.contact_id) continue;
                 if (input.project_id && n.project_id !== input.project_id) continue;
+                const provenance = (imports.get(n.id) || []).filter(row => !providers.length || providers.includes(row.provider));
+                if (providers.length && !provenance.length) continue;
                 const linked = memories.filter(m => m.source_id === n.id && m.source_version === n.version);
-                const fields = [[n.title, 6], [n.body, 2], [n.contact_name || n.project_contact_name, 8], [n.project_name, 6], [linked.map(m => `${m.text} ${m.topic}`).join(' '), 4]];
-                let score = terms.reduce((total, term) => total + fields.reduce((sum, [value, weight]) => sum + (normalize(value).includes(term) ? weight : 0), 0), 0);
+                const fields = [[n.title, 6], [n.body, 2], [provenance.map(row => row.path).join(' '), 7], [n.contact_name || n.project_contact_name, 8], [n.project_name, 6], [linked.map(m => `${m.text} ${m.topic}`).join(' '), 4]].map(([value, weight]) => ({ value: normalize(value), set: tokenSet(value), weight }));
+                const matched = terms.filter(term => fields.some(field => hasTerm(field.set, term)));
+                // Explicit import topics require both words in a two-word topic. Longer questions allow
+                // a small lexical gap. Ordinary relationship recall retains partial person-name matches.
+                if (terms.length && matched.length < (providers.length ? Math.ceil(terms.length * 0.6) : 1)) continue;
+                let score = matched.reduce((total, term) => total + fields.reduce((sum, field) => sum + (hasTerm(field.set, term) ? field.weight : 0), 0), 0);
+                if (terms.length && matched.length === terms.length) score += 30;
+                if (terms.length > 1) score += fields.reduce((sum, field) => sum + (field.value.replace(/[_/-]/g, ' ').includes(terms.join(' ')) ? field.weight * 4 : 0), 0);
                 if (!query.trim() && (input.contact_id || input.project_id)) score = 1;
                 if (score <= 0) continue;
-                const matching = linked.find(m => terms.some(t => normalize(`${m.text} ${m.topic}`).includes(t)));
+                const matching = linked.find(m => terms.some(term => hasTerm(tokenSet(`${m.text} ${m.topic}`), term)));
                 const bodyExcerpt = excerpt(n.body, terms);
                 hits.push({ source_id: n.id, title: n.title, quote: matching?.quote || bodyExcerpt, body_excerpt: bodyExcerpt,
                     occurred_on: n.occurred_on, source_version: n.version, contact_id: n.contact_id || n.project_contact_id || null,
                     project_id: n.project_id, contact_name: n.contact_name || n.project_contact_name, project_name: n.project_name,
-                    origin: n.origin, score, items: linked,
+                    origin: n.origin, score, items: linked, _sourceLength: n.body.length, import_provider: provenance[0]?.provider || null, import_path: provenance[0]?.path || null,
+                    import_sources: provenance.map(row => ({ provider: row.provider, path: row.path, source_version: row.source_version, edited_since_import: row.source_version !== n.version })),
                     history: all.filter(m => m.valid && m.source_id === n.id && m.status === 'superseded').map(m => ({ item_id: m.id, status: 'superseded', quote: m.quote, superseded_by: m.superseded_by })),
                     evidence_status: linked.length ? 'contains_confirmed_memory' : 'source_only' });
             }
-            hits.sort((a, b) => b.score - a.score || (b.occurred_on || '').localeCompare(a.occurred_on || '') || a.source_id.localeCompare(b.source_id));
-            return { hits: hits.slice(0, limit), method: 'lexical-and-linked-memory' };
+            hits.sort((a, b) => b.score - a.score || (providers.length ? a._sourceLength - b._sourceLength : 0) || (b.occurred_on || '').localeCompare(a.occurred_on || '') || a.source_id.localeCompare(b.source_id));
+            return { hits: hits.slice(0, limit).map(({ _sourceLength, ...hit }) => hit), method: 'lexical-and-linked-memory' };
         },
         propose(w, sourceId, input, provenance = {}) {
             owner(w);

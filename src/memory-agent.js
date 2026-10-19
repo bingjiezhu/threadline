@@ -1,5 +1,6 @@
 import { vertexJson } from './vertex-provider.js';
 import { memoryKinds } from './memory-store.js';
+import { analyzeMemoryQuery } from './memory-query.js';
 import { AppError, date, ensure, now, only, text, uid } from './util.js';
 
 const EMPTY_ANSWER = 'I could not find a saved source that answers this question. Add a note or name the person or project you mean.';
@@ -223,8 +224,11 @@ export function createMemoryAgent(store, domain, memory, config = {}) {
             ensure(db.prepare('SELECT id FROM memory_agent_threads WHERE workspace_id=? AND id=?').get(w, threadId), 'Conversation not found.', 404, 'not_found');
             if (/\b(it|its|that|this|they|them|he|she|his|her)\b/i.test(question)) context = db.prepare("SELECT body FROM memory_agent_messages WHERE workspace_id=? AND thread_id=? AND role='user' ORDER BY created_at DESC,rowid DESC LIMIT 1").get(w, threadId)?.body || '';
         }
-        const query = [question, context].filter(Boolean).join(' ').slice(0, 2000);
-        const found = memory.retrieve(w, { query, limit: MAX_SOURCES });
+        const current = analyzeMemoryQuery(question), previous = analyzeMemoryQuery(context);
+        // An explicitly selected import source is authoritative; unrelated prior questions cannot widen it.
+        const providers = current.providers.length ? current.providers : previous.providers;
+        const query = [current.query, current.providers.length ? '' : previous.query].filter(Boolean).join(' ').slice(0, 2000);
+        const found = memory.retrieve(w, { query, providers, limit: MAX_SOURCES });
         const hits = Array.isArray(found) ? found : (found.hits || found.results || []);
         const seen = new Set();
         return hits.filter(hit => !seen.has(hit.source_id) && seen.add(hit.source_id)).slice(0, MAX_SOURCES).map(hit => {
