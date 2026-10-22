@@ -107,13 +107,22 @@ export function createMemoryImport(store, domain, memory) {
             WHERE i.workspace_id=? AND i.provider=? AND i.path=? AND i.part_index=?
             AND n.deleted=0 ORDER BY i.imported_at DESC,i.rowid DESC LIMIT 1`).get(w, provider, file.path, index + 1);
     }
+    function newestImport(w, provider, path) {
+        return db.prepare(`SELECT i.content_hash FROM memory_imports i JOIN notes n
+            ON n.workspace_id=i.workspace_id AND n.id=i.source_id
+            WHERE i.workspace_id=? AND i.provider=? AND i.path=? AND n.deleted=0
+            ORDER BY i.imported_at DESC,i.rowid DESC LIMIT 1`).get(w, provider, path);
+    }
+    // A path whose newest import holds other content has changed, even back to content saved earlier.
+    const reverted = (w, provider, file) => { const newest = newestImport(w, provider, file.path); return Boolean(newest) && newest.content_hash !== file.hash; };
     function classify(w, provider, file) {
         const base = { path: file.path, hash: file.hash, title: file.title, characters: file.characters, bytes: file.bytes,
             parts: file.chunks.length, excerpt: file.reason ? '' : brief(file.content) };
         if (file.reason) return { ...base, status: 'blocked', reason: file.reason };
         const matches = file.chunks.map((part, index) => matchingPart(w, provider, file, part, index));
-        if (matches.every(Boolean)) return { ...base, status: 'duplicate', source_id: matches[0].id,
-            source_ids: matches.map(part => part.id), reason: 'This exact content is already saved. Confirmation retains its import provenance.' };
+        if (matches.every(Boolean)) return { ...base, source_id: matches[0].id, source_ids: matches.map(part => part.id), ...(reverted(w, provider, file)
+            ? { status: 'changed', reason: 'This path returned to content saved earlier. Importing makes that saved content its newest version again.' }
+            : { status: 'duplicate', reason: 'This exact content is already saved. Confirmation retains its import provenance.' }) };
         const previous = previousPart(w, provider, file, 0);
         return { ...base, status: previous ? 'changed' : 'new', ...(previous ? { previous_source_id: previous.id,
             reason: 'This path has changed or has a missing part. Importing preserves existing sources and saves only missing content.' } : {}) };
@@ -151,6 +160,7 @@ export function createMemoryImport(store, domain, memory) {
             return store.tx(() => {
                 const files = [];
                 for (const file of prepared.files.filter(file => selections.has(file.path))) {
+                    const returned = reverted(w, prepared.provider, file);
                     for (const [index, part] of file.chunks.entries()) {
                         const existing = matchingPart(w, prepared.provider, file, part, index);
                         const previous = previousPart(w, prepared.provider, file, index);
@@ -161,7 +171,9 @@ export function createMemoryImport(store, domain, memory) {
                         const previousId = previous && previous.id !== source.id ? previous.id : null;
                         const already = db.prepare(`SELECT id FROM memory_imports WHERE workspace_id=? AND provider=?
                             AND path=? AND content_hash=? AND part_index=? AND source_id=?`).get(w, prepared.provider, file.path, file.hash, index + 1, source.id);
-                        if (!already) db.prepare(`INSERT INTO memory_imports(id,workspace_id,provider,path,content_hash,part_hash,
+                        // Recording returned content again makes it the newest import of its path; recall reads that order.
+                        if (already && returned) db.prepare('DELETE FROM memory_imports WHERE id=?').run(already.id);
+                        if (!already || returned) db.prepare(`INSERT INTO memory_imports(id,workspace_id,provider,path,content_hash,part_hash,
                             part_index,part_count,source_id,source_version,previous_source_id,imported_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`).run(
                             uid(), w, prepared.provider, file.path, file.hash, part.hash, index + 1, file.chunks.length,
                             source.id, source.version, previousId, now());

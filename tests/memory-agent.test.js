@@ -73,6 +73,19 @@ caseTest('local ask retrieves actual memory, persists conversation and supports 
     assert.equal(history.messages[0].role, 'user'); assert.equal(history.messages[3].role, 'assistant');
 });
 
+caseTest('an answer marker past its citation list is rejected rather than shown as cited', async c => {
+    const agent = c.make({ ...vertexConfig, fetchImpl: modelStub(payload => ({ ...goodAnswer(payload, false), answer: 'You promised the overview [1] and confirmed the budget [2].' })) });
+    const run = await agent.ask(c.w, { question: 'What did I promise Alex?', use_ai: true, consent: true });
+    assert.equal(run.state, 'failed'); assert.equal(run.error_code, 'invalid_citation'); assert.equal(run.answer, ''); assert.deepEqual(run.actions, []);
+    const answerWith = async answer => (await c.make({ ...vertexConfig, fetchImpl: modelStub(payload => ({ ...goodAnswer(payload, false), answer })) })
+        .ask(c.w, { question: 'What did I promise Alex?', use_ai: true, consent: true }));
+    for (const answer of ['You promised the overview [0].', 'You promised the overview [1, 3].', 'You promised the overview [1][2].', 'You promised the overview \u30103\u3011.', 'You promised the overview \uff3b2\uff3d.'])
+        assert.equal((await answerWith(answer)).error_code, 'invalid_citation', answer);
+    // Code indexes are not citation markers.
+    for (const answer of ['The script reads process.argv[2] and rows[0][1] [1].', 'Use `items[3]` for the overview [1].'])
+        assert.equal((await answerWith(answer)).state, 'done', answer);
+});
+
 caseTest('no matching memory gives a truthful abstention, not invented context', async c => {
     const run = await c.make({}).ask(c.w, { question: 'Penguin relocation?', use_ai: false });
     assert.equal(run.state, 'done'); assert.deepEqual(run.citations, []); assert.match(run.answer, /could not find a saved source/);

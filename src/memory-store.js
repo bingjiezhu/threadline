@@ -5,9 +5,16 @@ export const memoryKinds = ['fact', 'preference', 'decision', 'commitment', 'goa
 const origins = ['web', 'import'];
 const activeStatuses = new Set(['proposed', 'confirmed']);
 const normalize = value => String(value || '').normalize('NFKC').toLocaleLowerCase('en-US');
-const tokens = value => [...String(value || '').matchAll(/[\p{L}\p{N}]+/gu)].map(match => ({ word: memoryWord(match[0]), index: match.index, end: match.index + match[0].length }));
+// Han characters and Latin letters written together become separate tokens, as a question splits them.
+// Digits stay with adjacent Han (a date or numbered quarter) or with Latin letters (iphone15).
+const tokens = value => [...String(value || '').matchAll(/\p{N}*\p{Script=Han}[\p{Script=Han}\p{N}]*|(?:(?!\p{Script=Han})[\p{L}\p{N}])+/gu)].map(match => ({ word: memoryWord(match[0]), index: match.index, end: match.index + match[0].length }));
 const tokenSet = value => new Set(tokens(value).map(token => token.word));
-const hasTerm = (set, term) => set.has(term) || (/\p{Script=Han}/u.test(term) && [...set].some(word => word.includes(term)));
+// A number written against Han text sits inside a Han token; it matches there unless part of a longer number.
+const hasNumber = (word, number) => { for (let at = word.indexOf(number); at >= 0; at = word.indexOf(number, at + 1)) if (!/\p{N}/u.test(word[at - 1] || '') && !/\p{N}/u.test(word[at + number.length] || '')) return true; return false; };
+const hasTerm = (set, term) => set.has(term) || (/\p{Script=Han}/u.test(term) ? [...set].some(word => word.includes(term))
+    : /^\p{N}+$/u.test(term) && [...set].some(word => /\p{Script=Han}/u.test(word) && hasNumber(word, term)));
+// Chinese is written without spaces, so a two-word Han query appears in text as one unbroken phrase.
+const phraseOf = terms => terms.join(terms.every(term => /\p{Script=Han}/u.test(term)) ? '' : ' ');
 function excerpt(body, terms, length = 700) {
     // Work in offsets of the original string, never offsets from a normalized copy.
     const frontmatter = body.match(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/)?.[0].length || 0;
@@ -18,7 +25,7 @@ function excerpt(body, terms, length = 700) {
         const start = Math.max(frontmatter, paragraph >= 0 && paragraph >= token.index - 160 ? paragraph + 2 : line >= 0 && line >= token.index - 100 ? line + 1 : token.index - 80);
         const value = body.slice(start, start + length), set = tokenSet(value);
         const count = terms.filter(term => hasTerm(set, term)).length;
-        const phrase = terms.length > 1 && normalize(value).includes(terms.join(' '));
+        const phrase = terms.length > 1 && normalize(value).includes(phraseOf(terms));
         const proximity = positions.filter(pos => pos.index >= start && pos.index < start + 250).length;
         return { start, score: count * 100 + (phrase ? 80 : 0) + Math.min(proximity, 5) };
     }) : [{ start: frontmatter, score: 0 }];
@@ -202,37 +209,75 @@ export function createMemoryStore(store, domain) {
             const providers = input.providers ?? analysis.providers;
             ensure(Array.isArray(providers) && providers.every(provider => ['codex', 'claude'].includes(provider)), 'Choose Codex or Claude import sources.');
             const terms = memoryQueryTerms(analysis.query);
+            // A lone Han character is too broad to select a source; it only ranks sources that other words select.
+            const anchors = terms.filter(term => !/^\p{Script=Han}$/u.test(term)), required = anchors.length ? anchors : terms;
             const importRows = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='memory_imports'").get()
-                ? db.prepare('SELECT source_id,provider,path,source_version FROM memory_imports WHERE workspace_id=?').all(w) : [];
-            const imports = new Map();
-            for (const row of importRows) { if (!imports.has(row.source_id)) imports.set(row.source_id, []); imports.get(row.source_id).push(row); }
+                ? db.prepare('SELECT rowid AS seq,source_id,provider,path,content_hash,source_version,imported_at FROM memory_imports WHERE workspace_id=?').all(w) : [];
             const all = allItems(w);
             const memories = all.filter(m => m.valid && m.status === 'confirmed');
             const notes = db.prepare(`${sourceSql} WHERE n.workspace_id=? AND n.deleted=0`).all(w);
-            const hits = [];
+            const live = new Map(notes.map(n => [n.id, n])), imports = new Map(), files = new Map(), latest = new Map();
+            const fileKey = row => `${row.provider}\u0000${row.path}`;
+            for (const row of importRows) {
+                for (const [map, key] of [[imports, row.source_id], [files, fileKey(row)]]) { if (!map.has(key)) map.set(key, []); map.get(key).push(row); }
+                const newest = latest.get(fileKey(row));
+                if (live.has(row.source_id) && (!newest || row.imported_at > newest.imported_at || row.imported_at === newest.imported_at && row.seq > newest.seq)) latest.set(fileKey(row), row);
+            }
+            // Re-importing a changed Codex/Claude file keeps the earlier snapshot as its own source. Nothing is
+            // hidden: an earlier snapshot ranks below newer content and is marked, so an answer can call it an
+            // earlier version. It counts as earlier when most of its content lines (front matter and headings
+            // aside) carry over into the newest import of the same path; another project's MEMORY.md shares few.
+            const lines = body => new Set(body.replace(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/, '').split('\n').map(line => normalize(line).replace(/\s+/g, ' ').trim())
+                .filter(line => /[\p{L}\p{N}]/u.test(line) && !/^#{1,6} /.test(line)));
+            const outdated = row => latest.get(fileKey(row)).content_hash !== row.content_hash, newestLines = new Map();
+            const carriedOver = (own, row) => {
+                const key = fileKey(row), newest = latest.get(key);
+                if (!newestLines.has(key)) newestLines.set(key, lines(files.get(key).filter(other => other.content_hash === newest.content_hash && live.has(other.source_id)).map(other => live.get(other.source_id).body).join('\n')));
+                return own.length > 0 && own.filter(line => newestLines.get(key).has(line)).length * 2 > own.length;
+            };
+            // A snapshot edited here, or holding a memory the owner confirmed, stays current after the file changes.
+            const earlier = (n, rows) => n.origin === 'import' && rows.length > 0 && rows.every(outdated)
+                && (imports.get(n.id) || []).some(row => row.source_version === n.version) && !memories.some(m => m.source_id === n.id && m.source_version === n.version)
+                && rows.every(row => carriedOver([...lines(n.body)], row));
+            const candidates = [];
             for (const n of notes) {
                 if (input.contact_id && (n.contact_id || n.project_contact_id) !== input.contact_id) continue;
                 if (input.project_id && n.project_id !== input.project_id) continue;
-                const provenance = (imports.get(n.id) || []).filter(row => !providers.length || providers.includes(row.provider));
-                if (providers.length && !provenance.length) continue;
+                const scoped = (imports.get(n.id) || []).filter(row => !providers.length || providers.includes(row.provider));
+                if (providers.length && !scoped.length) continue;
+                // Name a file whose newest import holds this content before an earlier import.
+                const provenance = [...scoped.filter(row => !outdated(row)), ...scoped.filter(outdated)];
                 const linked = memories.filter(m => m.source_id === n.id && m.source_version === n.version);
                 const fields = [[n.title, 6], [n.body, 2], [provenance.map(row => row.path).join(' '), 7], [n.contact_name || n.project_contact_name, 8], [n.project_name, 6], [linked.map(m => `${m.text} ${m.topic}`).join(' '), 4]].map(([value, weight]) => ({ value: normalize(value), set: tokenSet(value), weight }));
-                const matched = terms.filter(term => fields.some(field => hasTerm(field.set, term)));
+                candidates.push({ n, provenance, linked, fields, older: earlier(n, scoped), matched: terms.filter(term => fields.some(field => hasTerm(field.set, term))) });
+            }
+            // A term found in most sources (a common word such as "project") says little about
+            // which source answers the question; rarer terms count for more.
+            const frequency = new Map(terms.map(term => [term, candidates.filter(candidate => candidate.matched.includes(term)).length]));
+            const rarity = term => 1 + Math.log((candidates.length + 1) / (frequency.get(term) + 1));
+            // Matching every selecting word earns a bonus, sized by the share of all question words matched and by
+            // the rarest matched word, so a source with one rare word does not outrank one that matches them all.
+            const boost = Math.max(1, ...terms.filter(term => frequency.get(term)).map(rarity));
+            const hits = [];
+            for (const { n, provenance, linked, fields, older, matched } of candidates) {
+                const found = required.filter(term => matched.includes(term));
                 // Explicit import topics require both words in a two-word topic. Longer questions allow
                 // a small lexical gap. Ordinary relationship recall retains partial person-name matches.
-                if (terms.length && matched.length < (providers.length ? Math.ceil(terms.length * 0.6) : 1)) continue;
-                let score = matched.reduce((total, term) => total + fields.reduce((sum, field) => sum + (hasTerm(field.set, term) ? field.weight : 0), 0), 0);
-                if (terms.length && matched.length === terms.length) score += 30;
-                if (terms.length > 1) score += fields.reduce((sum, field) => sum + (field.value.replace(/[_/-]/g, ' ').includes(terms.join(' ')) ? field.weight * 4 : 0), 0);
+                if (terms.length && found.length < (providers.length ? Math.ceil(required.length * 0.6) : 1)) continue;
+                let score = matched.reduce((total, term) => total + rarity(term) * fields.reduce((sum, field) => sum + (hasTerm(field.set, term) ? field.weight : 0), 0), 0);
+                if (terms.length && found.length === required.length) score += 30 * boost * matched.length / terms.length;
+                if (terms.length > 1) score += fields.reduce((sum, field) => sum + (field.value.replace(/[_/-]/g, ' ').includes(phraseOf(terms)) ? field.weight * 4 * boost : 0), 0);
+                if (older) score /= 2;
                 if (!query.trim() && (input.contact_id || input.project_id)) score = 1;
                 if (score <= 0) continue;
-                const matching = linked.find(m => terms.some(term => hasTerm(tokenSet(`${m.text} ${m.topic}`), term)));
+                const matching = linked.find(m => required.some(term => hasTerm(tokenSet(`${m.text} ${m.topic}`), term)));
                 const bodyExcerpt = excerpt(n.body, terms);
                 hits.push({ source_id: n.id, title: n.title, quote: matching?.quote || bodyExcerpt, body_excerpt: bodyExcerpt,
                     occurred_on: n.occurred_on, source_version: n.version, contact_id: n.contact_id || n.project_contact_id || null,
                     project_id: n.project_id, contact_name: n.contact_name || n.project_contact_name, project_name: n.project_name,
-                    origin: n.origin, score, items: linked, _sourceLength: n.body.length, import_provider: provenance[0]?.provider || null, import_path: provenance[0]?.path || null,
+                    origin: n.origin, score: Math.round(score * 100) / 100, items: linked, _sourceLength: n.body.length, import_provider: provenance[0]?.provider || null, import_path: provenance[0]?.path || null,
                     import_sources: provenance.map(row => ({ provider: row.provider, path: row.path, source_version: row.source_version, edited_since_import: row.source_version !== n.version })),
+                    older_snapshot: older, newer_source_id: older ? latest.get(fileKey(provenance[0])).source_id : null,
                     history: all.filter(m => m.valid && m.source_id === n.id && m.status === 'superseded').map(m => ({ item_id: m.id, status: 'superseded', quote: m.quote, superseded_by: m.superseded_by })),
                     evidence_status: linked.length ? 'contains_confirmed_memory' : 'source_only' });
             }
